@@ -1,0 +1,33 @@
+import React from 'react';
+import { Video, StopCircle } from 'lucide-react';
+
+interface RecordButtonProps {
+  isRecording: boolean;
+  onClick: () => void;
+}
+
+export const RecordButton: React.FC<RecordButtonProps> = ({ isRecording, onClick }) => {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex items-center gap-2 px-6 py-3 rounded-full text-white font-medium transition-all ${
+        isRecording
+          ? 'bg-red-500 hover:bg-red-600'
+          : 'bg-blue-500 hover:bg-blue-600'
+      }`}
+      aria-label={isRecording ? 'Stop Recording' : 'Start Recording'}
+    >
+      {isRecording ? (
+        <>
+          <StopCircle size={20} />
+          Stop Recording
+        </>
+      ) : (
+        <>
+          <Video size={20} />
+          Start Recording
+        </>
+      )}
+    </button>
+  );
+};
