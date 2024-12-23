@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { oneDriveService } from '../services/oneDrive';
-import { VideoPlayer } from './VideoPlayer';
 import { Video as VideoIcon } from 'lucide-react';
 import { useScreenRecorder } from '../hooks/useScreenRecorder';
+import { VideoPlayer } from './VideoPlayer';
 
 interface Video {
   id: string;

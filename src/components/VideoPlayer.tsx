@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { 
   Play, Pause, Volume2, VolumeX, Share2, 
   Maximize2, Minimize2, ExternalLink, 
-  SkipBack, SkipForward
+  SkipBack, SkipForward, Upload
 } from 'lucide-react';
 
 interface VideoPlayerProps {
@@ -210,9 +210,61 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ video, className = '' 
     );
   };
 
+  const renderUploadingState = () => {
+    if (!video.isUploading) return null;
+
+    const progress = video.uploadProgress || 0;
+    const progressText = `${Math.round(progress)}%`;
+
+    return (
+      <div className="absolute inset-0 bg-gray-900/90 backdrop-blur-sm flex items-center justify-center">
+        <div className="flex flex-col items-center max-w-xs w-full px-6">
+          {/* Animated Upload Icon */}
+          <div className="relative mb-6">
+            <Upload 
+              className={`h-12 w-12 text-blue-400 animate-bounce ${
+                progress === 100 ? 'text-green-400' : ''
+              }`}
+            />
+            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-sm font-medium text-gray-300">
+              {progressText}
+            </div>
+          </div>
+
+          {/* Progress Bar */}
+          <div className="w-full h-2 bg-gray-700 rounded-full overflow-hidden mb-4">
+            <div 
+              className="h-full bg-blue-500 transition-all duration-300 rounded-full"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+
+          {/* Status Text */}
+          <div className="text-center">
+            <h4 className="text-lg font-semibold text-white mb-2">
+              {progress === 100 ? 'Processing...' : 'Uploading Recording...'}
+            </h4>
+            <p className="text-sm text-gray-400">
+              {progress === 100 
+                ? 'Almost there! Finalizing your recording...'
+                : 'Please wait while we save your recording...'}
+            </p>
+          </div>
+
+          {/* Upload Stats */}
+          <div className="mt-4 flex items-center justify-center space-x-4 text-xs text-gray-500">
+            <span>{new Date().toLocaleTimeString()}</span>
+            <span>•</span>
+            <span>{formatVideoName(video.name)}</span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <div className={className}>
-      <div className="relative group aspect-video">
+    <div className={`${className} relative group`}>
+      <div className="relative aspect-video bg-gray-800">
         {video.url ? (
           <video
             ref={videoRef}
@@ -221,23 +273,43 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ video, className = '' 
             muted={isMuted}
             onPlay={() => setIsPlaying(true)}
             onPause={() => setIsPlaying(false)}
+            onTimeUpdate={handleTimeUpdate}
+            onLoadedMetadata={handleLoadedMetadata}
           />
         ) : (
-          <div className="w-full h-full bg-gray-800 flex items-center justify-center">
-            <VideoIcon className="w-12 h-12 text-gray-600" />
+          <div className="w-full h-full flex items-center justify-center">
+            <div className="w-16 h-16 text-gray-600">
+              <VideoIcon />
+            </div>
           </div>
         )}
-        
-        {/* Video Controls Overlay */}
-        <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">
-          {renderPlayButton()}
-        </div>
+
+        {/* Video Controls or Upload State */}
+        {video.isUploading ? (
+          renderUploadingState()
+        ) : (
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+            {/* Existing video controls */}
+          </div>
+        )}
       </div>
 
+      {/* Video Info */}
       <div className="p-4">
-        <h3 className="text-lg font-semibold text-white mb-1">
-          {video.name}
-        </h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-white">
+            {video.isUploading ? 'New Recording' : formatVideoName(video.name)}
+          </h3>
+          {!video.isUploading && video.url && (
+            <button
+              onClick={openInOneDrive}
+              className="text-gray-400 hover:text-blue-400 transition-colors"
+              title="Open in OneDrive"
+            >
+              <ExternalLink size={20} />
+            </button>
+          )}
+        </div>
         <p className="text-sm text-gray-400">
           {new Date(video.createdDateTime).toLocaleString()}
         </p>

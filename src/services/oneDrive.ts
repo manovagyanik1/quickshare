@@ -147,13 +147,14 @@ export class OneDriveService {
     file: Blob,
     fileName: string,
     onProgress?: UploadProgressCallback
-  ): Promise<void> {
+  ): Promise<{ fileUrl: string }> {
     await this.ensureFolder();
     try {
-      console.log('Starting file upload:', { fileName, size: file.size }); // Debug log
+      console.log('Starting file upload:', { fileName, size: file.size });
       const session = await this.createUploadSession(fileName);
       const totalSize = file.size;
       let offset = 0;
+      let fileId: string | null = null;
 
       while (offset < totalSize) {
         const chunk = file.slice(offset, Math.min(offset + CHUNK_SIZE, totalSize));
@@ -163,7 +164,7 @@ export class OneDriveService {
           range, 
           chunkSize: chunk.size,
           progress: `${Math.round((offset / totalSize) * 100)}%`
-        }); // Debug log
+        });
 
         const response = await fetch(session.uploadUrl, {
           method: 'PUT',
@@ -184,6 +185,13 @@ export class OneDriveService {
           throw new Error(`Upload failed: ${response.status} ${errorText}`);
         }
 
+        const responseData = await response.json();
+        
+        // On last chunk, we get the file data including ID
+        if (responseData.id) {
+          fileId = responseData.id;
+        }
+
         offset += chunk.size;
         
         if (onProgress) {
@@ -191,7 +199,15 @@ export class OneDriveService {
         }
       }
 
-      console.log('File upload completed successfully'); // Debug log
+      if (!fileId) {
+        throw new Error('Failed to get file ID after upload');
+      }
+
+      // Get the download URL for the uploaded file
+      const fileUrl = await this.getFileUrl(fileId);
+      console.log('File upload completed successfully:', { fileUrl });
+      
+      return { fileUrl };
     } catch (error) {
       console.error('Error in uploadFile:', error);
       throw error;

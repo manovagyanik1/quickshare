@@ -117,17 +117,16 @@ export const useScreenRecorder = () => {
 
         try {
           const fileName = formatFileName();
-          const session = await oneDriveService.createUploadSession(fileName);
-          const result = await oneDriveService.uploadFile(
+          const { fileUrl } = await oneDriveService.uploadFile(
             blob,
             fileName,
             (progress) => {
               setUploadingVideo(prev => prev ? { ...prev, progress } : null);
             }
           );
-          if (result?.fileUrl) {
-            onNewVideo(tempId, result.fileUrl);
-          }
+          
+          // Now we have the fileUrl directly
+          onNewVideo(fileUrl);
         } catch (error) {
           console.error('Failed to upload video:', error);
         } finally {
@@ -138,7 +137,7 @@ export const useScreenRecorder = () => {
       console.error('Error starting recording:', error);
       throw error;
     }
-  }, [state.currentPreset, calculateOptimalBitrate]);
+  }, [calculateOptimalBitrate, state.currentPreset, onNewVideo]);
 
   const stopRecording = useCallback(async () => {
     if (state.mediaRecorder && state.mediaRecorder.state !== 'inactive') {
@@ -169,6 +168,7 @@ export const useScreenRecorder = () => {
     isRecording: state.isRecording,
     currentPreset: state.currentPreset,
     uploadProgress,
+    uploadingVideo,
     newVideoUrl,
     setQualityPreset,
     startRecording,
