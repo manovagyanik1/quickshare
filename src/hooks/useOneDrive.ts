@@ -1,35 +1,49 @@
-import { useMsal } from '@azure/msal-react';
-import { useState } from 'react';
-import { uploadToOneDrive } from '../services/oneDrive';
+import { useState, useCallback } from 'react';
+import { authService } from '../services/auth';
+import { oneDriveService } from '../services/oneDrive';
 
 export const useOneDrive = () => {
-  const { instance, accounts } = useMsal();
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
-  const login = async () => {
+  const login = useCallback(async () => {
     try {
-      await instance.loginPopup({
-        scopes: ['Files.ReadWrite', 'Files.ReadWrite.All'],
-      });
+      await authService.login();
     } catch (error) {
-      console.error('Error logging in:', error);
+      console.error('Login failed:', error);
       throw error;
     }
-  };
+  }, []);
 
-  const uploadFile = async (file: Blob, fileName: string) => {
+  const logout = useCallback(async () => {
+    try {
+      await authService.logout();
+    } catch (error) {
+      console.error('Logout failed:', error);
+      throw error;
+    }
+  }, []);
+
+  const uploadFile = useCallback(async (file: Blob, fileName: string) => {
     try {
       setIsUploading(true);
-      await uploadToOneDrive(file, fileName);
+      setUploadProgress(0);
+      
+      await oneDriveService.uploadFile(file, fileName, (progress) => {
+        setUploadProgress(progress);
+      });
     } finally {
       setIsUploading(false);
+      setUploadProgress(0);
     }
-  };
+  }, []);
 
   return {
-    isLoggedIn: accounts.length > 0,
+    isLoggedIn: authService.isAuthenticated(),
     isUploading,
+    uploadProgress,
     login,
+    logout,
     uploadFile,
   };
 };
