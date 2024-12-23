@@ -1,10 +1,10 @@
-import { uploadToOneDrive } from '../services/oneDrive';
+import { oneDriveService } from '../services/oneDrive';
 
 export const saveRecording = async (blob: Blob, useOneDrive = false) => {
   try {
     if (useOneDrive) {
       const fileName = `screen-recording-${Date.now()}.webm`;
-      await uploadToOneDrive(blob, fileName);
+      await oneDriveService.uploadFile(blob, fileName);
       return;
     }
 
