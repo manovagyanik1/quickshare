@@ -3,6 +3,7 @@ import { AUTH_CONFIG } from '../config/auth';
 
 class AuthService {
   private msalInstance: PublicClientApplication;
+  private initialized: boolean = false;
 
   constructor() {
     this.msalInstance = new PublicClientApplication({
@@ -18,8 +19,16 @@ class AuthService {
     });
   }
 
+  async initialize(): Promise<void> {
+    if (!this.initialized) {
+      await this.msalInstance.initialize();
+      this.initialized = true;
+    }
+  }
+
   async login(): Promise<AuthenticationResult> {
     try {
+      await this.initialize();
       return await this.msalInstance.loginPopup({
         scopes: AUTH_CONFIG.scopes,
       });
@@ -31,6 +40,7 @@ class AuthService {
 
   async getAccessToken(): Promise<string | null> {
     try {
+      await this.initialize();
       const account = this.msalInstance.getAllAccounts()[0];
       if (!account) return null;
 
@@ -48,6 +58,7 @@ class AuthService {
 
   async logout(): Promise<void> {
     try {
+      await this.initialize();
       await this.msalInstance.logoutPopup();
     } catch (error) {
       console.error('Logout failed:', error);
@@ -55,8 +66,14 @@ class AuthService {
     }
   }
 
-  isAuthenticated(): boolean {
+  async isAuthenticated(): Promise<boolean> {
+    await this.initialize();
     return this.msalInstance.getAllAccounts().length > 0;
+  }
+
+  async handleRedirectPromise(): Promise<void> {
+    await this.initialize();
+    await this.msalInstance.handleRedirectPromise();
   }
 }
 
