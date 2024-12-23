@@ -2,8 +2,10 @@ import React, { useState, useRef } from 'react';
 import { 
   Play, Pause, Volume2, VolumeX, Share2, 
   Maximize2, Minimize2, ExternalLink, 
-  SkipBack, SkipForward, Upload
+  SkipBack, SkipForward, Upload, Trash2
 } from 'lucide-react';
+import { DeleteConfirmation } from './DeleteConfirmation';
+import { oneDriveService } from '../services/oneDrive';
 
 interface VideoPlayerProps {
   video: {
@@ -15,6 +17,7 @@ interface VideoPlayerProps {
     isUploading?: boolean;
   };
   className?: string;
+  onDelete?: () => void;
 }
 
 const formatVideoName = (filename: string): string => {
@@ -34,7 +37,7 @@ const formatVideoName = (filename: string): string => {
   return filename; // Fallback to original filename if format doesn't match
 };
 
-export const VideoPlayer: React.FC<VideoPlayerProps> = ({ video, className = '' }) => {
+export const VideoPlayer: React.FC<VideoPlayerProps> = ({ video, className = '', onDelete }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -45,6 +48,8 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ video, className = '' 
   const [showFullscreenControls, setShowFullscreenControls] = useState(true);
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const togglePlay = () => {
     if (videoRef.current) {
@@ -143,6 +148,19 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ video, className = '' 
   const openInOneDrive = () => {
     const oneDriveUrl = `https://onedrive.live.com/?id=${video.id}`;
     window.open(oneDriveUrl, '_blank');
+  };
+
+  const handleDelete = async () => {
+    try {
+      setIsDeleting(true);
+      await oneDriveService.deleteVideo(video.id);
+      onDelete?.();
+    } catch (error) {
+      console.error('Failed to delete video:', error);
+      // You could add a toast notification here
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   // Add keyboard controls
@@ -263,57 +281,146 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ video, className = '' 
   };
 
   return (
-    <div className={`${className} relative group`}>
-      <div className="relative aspect-video bg-gray-800">
-        {video.url ? (
-          <video
-            ref={videoRef}
-            src={video.url}
-            className="w-full h-full object-cover"
-            muted={isMuted}
-            onPlay={() => setIsPlaying(true)}
-            onPause={() => setIsPlaying(false)}
-            onTimeUpdate={handleTimeUpdate}
-            onLoadedMetadata={handleLoadedMetadata}
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <div className="w-16 h-16 text-gray-600">
-              <VideoIcon />
+    <>
+      <div className={`${className} relative group`}>
+        <div className="relative aspect-video bg-gray-800">
+          {video.url ? (
+            <video
+              ref={videoRef}
+              src={video.url}
+              className="w-full h-full object-cover"
+              muted={isMuted}
+              onPlay={() => setIsPlaying(true)}
+              onPause={() => setIsPlaying(false)}
+              onTimeUpdate={handleTimeUpdate}
+              onLoadedMetadata={handleLoadedMetadata}
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <div className="w-16 h-16 text-gray-600">
+                <VideoIcon />
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Video Controls or Upload State */}
-        {video.isUploading ? (
-          renderUploadingState()
-        ) : (
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
-            {/* Existing video controls */}
-          </div>
-        )}
-      </div>
+          {/* Video Controls or Upload State */}
+          {video.isUploading ? (
+            renderUploadingState()
+          ) : (
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="absolute top-0 left-0 right-0 p-4 flex justify-end space-x-2 z-10">
+                <button
+                  onClick={openInOneDrive}
+                  className="p-2 rounded-full bg-white/90 text-gray-900 hover:bg-white transition-colors"
+                  title="Open in OneDrive"
+                >
+                  <ExternalLink size={20} />
+                </button>
+                <button
+                  onClick={toggleFullscreen}
+                  className="p-2 rounded-full bg-white/90 text-gray-900 hover:bg-white transition-colors"
+                  title="Toggle Fullscreen"
+                >
+                  {isFullscreen ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
+                </button>
+                <button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className={`p-2 rounded-full bg-red-500/90 hover:bg-red-600 text-white transition-colors ${
+                    isDeleting ? 'cursor-not-allowed opacity-50' : ''
+                  }`}
+                  disabled={isDeleting}
+                  title="Delete Recording"
+                >
+                  <Trash2 size={20} />
+                </button>
+              </div>
 
-      {/* Video Info */}
-      <div className="p-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-white">
-            {video.isUploading ? 'New Recording' : formatVideoName(video.name)}
-          </h3>
-          {!video.isUploading && video.url && (
-            <button
-              onClick={openInOneDrive}
-              className="text-gray-400 hover:text-blue-400 transition-colors"
-              title="Open in OneDrive"
-            >
-              <ExternalLink size={20} />
-            </button>
+              {/* Center Play Button */}
+              <div className="absolute inset-0 flex items-center justify-center">
+                <button
+                  onClick={togglePlay}
+                  className="p-4 rounded-full bg-white bg-opacity-90 text-gray-900 hover:bg-opacity-100 transform transition-transform hover:scale-110"
+                >
+                  {isPlaying ? <Pause size={32} /> : <Play size={32} />}
+                </button>
+              </div>
+
+              {/* Bottom Controls Bar */}
+              <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/60 to-transparent">
+                {/* Progress Bar */}
+                <input
+                  type="range"
+                  min={0}
+                  max={duration}
+                  value={currentTime}
+                  onChange={handleSeek}
+                  className="w-full h-1 mb-4 rounded-lg appearance-none cursor-pointer bg-gray-400"
+                />
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <button onClick={togglePlay}>
+                      {isPlaying ? <Pause size={20} /> : <Play size={20} />}
+                    </button>
+                    <button onClick={skipBackward}>
+                      <SkipBack size={20} />
+                    </button>
+                    <button onClick={skipForward}>
+                      <SkipForward size={20} />
+                    </button>
+                    <div className="flex items-center space-x-2">
+                      <button onClick={toggleMute}>
+                        {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
+                      </button>
+                      <input
+                        type="range"
+                        min={0}
+                        max={1}
+                        step={0.1}
+                        value={volume}
+                        onChange={handleVolumeChange}
+                        className="w-20 h-1 rounded-lg appearance-none cursor-pointer bg-gray-400"
+                      />
+                    </div>
+                    <span className="text-sm text-white">
+                      {formatTime(currentTime)} / {formatTime(duration)}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={shareVideo}
+                      className="text-white hover:text-blue-400"
+                      title="Share"
+                    >
+                      <Share2 size={20} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
           )}
         </div>
-        <p className="text-sm text-gray-400">
-          {new Date(video.createdDateTime).toLocaleString()}
-        </p>
+
+        {/* Video Info */}
+        <div className="p-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-white">
+              {video.isUploading ? 'New Recording' : formatVideoName(video.name)}
+            </h3>
+          </div>
+          <p className="text-sm text-gray-400">
+            {new Date(video.createdDateTime).toLocaleString()}
+          </p>
+        </div>
       </div>
-    </div>
+
+      <DeleteConfirmation
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={handleDelete}
+        videoName={formatVideoName(video.name)}
+      />
+    </>
   );
 }; 

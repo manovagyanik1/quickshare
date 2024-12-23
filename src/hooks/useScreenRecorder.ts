@@ -113,7 +113,12 @@ export const useScreenRecorder = () => {
       mediaRecorder.onstop = async () => {
         const blob = new Blob(chunks, { type: 'video/webm' });
         const tempId = 'temp-' + Date.now();
-        setUploadingVideo({ id: tempId, progress: 0 });
+        
+        // Set uploading state immediately
+        setUploadingVideo({ 
+          id: tempId, 
+          progress: 0 
+        });
 
         try {
           const fileName = formatFileName();
@@ -121,12 +126,14 @@ export const useScreenRecorder = () => {
             blob,
             fileName,
             (progress) => {
-              setUploadingVideo(prev => prev ? { ...prev, progress } : null);
+              setUploadingVideo(prev => 
+                prev ? { ...prev, progress } : null
+              );
             }
           );
           
-          // Now we have the fileUrl directly
-          onNewVideo(fileUrl);
+          // Set the new video URL and clear uploading state
+          setNewVideoUrl(fileUrl);
         } catch (error) {
           console.error('Failed to upload video:', error);
         } finally {
@@ -137,7 +144,7 @@ export const useScreenRecorder = () => {
       console.error('Error starting recording:', error);
       throw error;
     }
-  }, [calculateOptimalBitrate, state.currentPreset, onNewVideo]);
+  }, [calculateOptimalBitrate, state.currentPreset]);
 
   const stopRecording = useCallback(async () => {
     if (state.mediaRecorder && state.mediaRecorder.state !== 'inactive') {

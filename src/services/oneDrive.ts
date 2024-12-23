@@ -154,17 +154,10 @@ export class OneDriveService {
       const session = await this.createUploadSession(fileName);
       const totalSize = file.size;
       let offset = 0;
-      let fileId: string | null = null;
 
       while (offset < totalSize) {
         const chunk = file.slice(offset, Math.min(offset + CHUNK_SIZE, totalSize));
         const range = `bytes ${offset}-${offset + chunk.size - 1}/${totalSize}`;
-
-        console.log('Uploading chunk:', { 
-          range, 
-          chunkSize: chunk.size,
-          progress: `${Math.round((offset / totalSize) * 100)}%`
-        });
 
         const response = await fetch(session.uploadUrl, {
           method: 'PUT',
@@ -176,38 +169,22 @@ export class OneDriveService {
         });
 
         if (!response.ok) {
-          const errorText = await response.text();
-          console.error('Chunk upload failed:', {
-            status: response.status,
-            statusText: response.statusText,
-            error: errorText
-          });
-          throw new Error(`Upload failed: ${response.status} ${errorText}`);
-        }
-
-        const responseData = await response.json();
-        
-        // On last chunk, we get the file data including ID
-        if (responseData.id) {
-          fileId = responseData.id;
+          throw new Error(`Upload failed: ${response.status}`);
         }
 
         offset += chunk.size;
-        
-        if (onProgress) {
-          onProgress((offset / totalSize) * 100);
+        const progress = (offset / totalSize) * 100;
+        onProgress?.(progress);
+
+        // Check if this was the last chunk
+        if (offset === totalSize) {
+          const responseData = await response.json();
+          const fileUrl = await this.getFileUrl(responseData.id);
+          return { fileUrl };
         }
       }
 
-      if (!fileId) {
-        throw new Error('Failed to get file ID after upload');
-      }
-
-      // Get the download URL for the uploaded file
-      const fileUrl = await this.getFileUrl(fileId);
-      console.log('File upload completed successfully:', { fileUrl });
-      
-      return { fileUrl };
+      throw new Error('Upload completed but failed to get file URL');
     } catch (error) {
       console.error('Error in uploadFile:', error);
       throw error;
@@ -297,6 +274,26 @@ export class OneDriveService {
 
     const data = await response.json();
     return data.webUrl;
+  }
+
+  async deleteVideo(fileId: string): Promise<void> {
+    try {
+      const headers = await this.getHeaders();
+      const response = await fetch(
+        `${GRAPH_ENDPOINT}/me/drive/items/${fileId}`,
+        {
+          method: 'DELETE',
+          headers
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to delete video: ${response.status}`);
+      }
+    } catch (error) {
+      console.error('Error deleting video:', error);
+      throw error;
+    }
   }
 }
 

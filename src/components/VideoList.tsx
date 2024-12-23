@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { oneDriveService } from '../services/oneDrive';
 import { Video as VideoIcon } from 'lucide-react';
 import { useScreenRecorder } from '../hooks/useScreenRecorder';
@@ -19,7 +19,7 @@ export const VideoList: React.FC = () => {
   const [videos, setVideos] = useState<Video[]>([]);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { uploadingVideo } = useScreenRecorder();
+  const { uploadingVideo, newVideoUrl } = useScreenRecorder();
 
   // Initial fetch of videos
   useEffect(() => {
@@ -33,8 +33,8 @@ export const VideoList: React.FC = () => {
         const existingIndex = prev.findIndex(v => v.id === uploadingVideo.id);
         const updatedVideo: Video = {
           id: uploadingVideo.id,
-          name: 'Recording in progress...',
-          url: '',
+          name: formatFileName(), // Use the same format as the actual file
+          url: '', // Will be populated when upload completes
           createdDateTime: new Date().toISOString(),
           size: 0,
           isUploading: true,
@@ -42,17 +42,20 @@ export const VideoList: React.FC = () => {
         };
 
         if (existingIndex >= 0) {
-          // Update existing video
-          const newVideos = [...prev];
-          newVideos[existingIndex] = updatedVideo;
-          return newVideos;
-        } else {
-          // Add new video at the beginning
-          return [updatedVideo, ...prev];
+          return prev.map(v => v.id === uploadingVideo.id ? updatedVideo : v);
         }
+        return [updatedVideo, ...prev];
       });
     }
   }, [uploadingVideo]);
+
+  // Handle new video URL
+  useEffect(() => {
+    if (newVideoUrl) {
+      // Refresh the video list to get the latest video
+      fetchVideos();
+    }
+  }, [newVideoUrl]);
 
   const fetchVideos = async () => {
     try {
@@ -70,6 +73,11 @@ export const VideoList: React.FC = () => {
       setIsInitialLoading(false);
     }
   };
+
+  const handleVideoDelete = useCallback(() => {
+    // Refresh the video list after deletion
+    fetchVideos();
+  }, []);
 
   // Show initial loading state
   if (isInitialLoading) {
@@ -118,6 +126,7 @@ export const VideoList: React.FC = () => {
           key={video.id}
           video={video}
           className="bg-gray-800 rounded-lg overflow-hidden shadow-lg"
+          onDelete={handleVideoDelete}
         />
       ))}
     </div>
