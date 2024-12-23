@@ -1,28 +1,23 @@
 import { oneDriveService } from '../services/oneDrive';
 
-export const saveRecording = async (blob: Blob, useOneDrive = false) => {
+export const saveRecording = async (blob: Blob, useOneDrive: boolean) => {
   try {
     if (useOneDrive) {
-      const fileName = `screen-recording-${Date.now()}.webm`;
-      await oneDriveService.uploadFile(blob, fileName);
-      return;
+      console.log('Attempting to save to OneDrive...'); // Debug log
+      const fileName = `recording-${Date.now()}.webm`;
+      await oneDriveService.uploadFile(blob, fileName, (progress) => {
+        console.log('Upload progress:', progress); // Debug log
+      });
+      console.log('Successfully saved to OneDrive'); // Debug log
+    } else {
+      // Local download logic
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `recording-${Date.now()}.webm`;
+      a.click();
+      URL.revokeObjectURL(url);
     }
-
-    // Default local save behavior
-    const suggestedName = `screen-recording-${Date.now()}.webm`;
-    const handle = await window.showSaveFilePicker({
-      suggestedName,
-      types: [{
-        description: 'WebM Video',
-        accept: {
-          'video/webm': ['.webm']
-        }
-      }]
-    });
-    
-    const writableStream = await handle.createWritable();
-    await writableStream.write(blob);
-    await writableStream.close();
   } catch (error) {
     console.error('Error saving recording:', error);
     throw error;
