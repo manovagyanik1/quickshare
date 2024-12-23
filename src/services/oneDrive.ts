@@ -1,46 +1,65 @@
-import { msalInstance } from '../config/msal';
+import { authService } from './auth';
 
 const GRAPH_ENDPOINT = 'https://graph.microsoft.com/v1.0';
-const UPLOAD_CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks
+const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks
 
-const getAccessToken = async () => {
-  const account = msalInstance.getAllAccounts()[0];
-  const request = {
-    scopes: ['Files.ReadWrite', 'Files.ReadWrite.All'],
-    account
-  };
-  
-  const response = await msalInstance.acquireTokenSilent(request);
-  return response.accessToken;
-};
+interface UploadSessionResponse {
+  uploadUrl: string;
+  expirationDateTime: string;
+}
 
-export const uploadToOneDrive = async (file: Blob, fileName: string) => {
-  try {
-    const token = await getAccessToken();
-    
-    // 1. Create upload session
-    const sessionResponse = await fetch(
-      `${GRAPH_ENDPOINT}/me/drive/root:/${fileName}:/createUploadSession`,
+interface UploadProgressCallback {
+  (progress: number): void;
+}
+
+export class OneDriveService {
+  private async getHeaders(): Promise<Headers> {
+    const token = await authService.getAccessToken();
+    if (!token) throw new Error('Not authenticated');
+
+    return new Headers({
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    });
+  }
+
+  async createUploadSession(fileName: string): Promise<UploadSessionResponse> {
+    const headers = await this.getHeaders();
+    const response = await fetch(
+      `${GRAPH_ENDPOINT}/me/drive/root:/Videos/${fileName}:/createUploadSession`,
       {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
+        headers,
+        body: JSON.stringify({
+          item: {
+            '@microsoft.graph.conflictBehavior': 'rename',
+            name: fileName,
+          },
+        }),
       }
     );
 
-    const { uploadUrl } = await sessionResponse.json();
+    if (!response.ok) {
+      throw new Error(`Failed to create upload session: ${response.statusText}`);
+    }
 
-    // 2. Upload file in chunks
+    return response.json();
+  }
+
+  async uploadFile(
+    file: Blob,
+    fileName: string,
+    onProgress?: UploadProgressCallback
+  ): Promise<void> {
+    const session = await this.createUploadSession(fileName);
     const totalSize = file.size;
     let offset = 0;
 
     while (offset < totalSize) {
-      const chunk = file.slice(offset, offset + UPLOAD_CHUNK_SIZE);
+      const chunk = file.slice(offset, Math.min(offset + CHUNK_SIZE, totalSize));
       const range = `bytes ${offset}-${offset + chunk.size - 1}/${totalSize}`;
 
-      await fetch(uploadUrl, {
+      const response = await fetch(session.uploadUrl, {
         method: 'PUT',
         headers: {
           'Content-Length': chunk.size.toString(),
@@ -49,12 +68,17 @@ export const uploadToOneDrive = async (file: Blob, fileName: string) => {
         body: chunk,
       });
 
-      offset += chunk.size;
-    }
+      if (!response.ok) {
+        throw new Error(`Upload failed: ${response.statusText}`);
+      }
 
-    return true;
-  } catch (error) {
-    console.error('Error uploading to OneDrive:', error);
-    throw error;
+      offset += chunk.size;
+      
+      if (onProgress) {
+        onProgress((offset / totalSize) * 100);
+      }
+    }
   }
-};
+}
+
+export const oneDriveService = new OneDriveService();
