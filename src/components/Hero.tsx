@@ -3,6 +3,8 @@ import { RecordButton } from './RecordButton';
 import { RecordingStatus } from './RecordingStatus';
 import { OneDriveButton } from './OneDriveButton';
 import { useOneDrive } from '../hooks/useOneDrive';
+import { VIDEO_PRESETS } from '../utils/videoPresets';
+import { useScreenRecorder } from '../hooks/useScreenRecorder';
 
 interface HeroProps {
   isRecording: boolean;
@@ -11,6 +13,7 @@ interface HeroProps {
 
 export const Hero: React.FC<HeroProps> = ({ isRecording, onRecordClick }) => {
   const { isLoggedIn } = useOneDrive();
+  const { currentPreset, setQualityPreset } = useScreenRecorder();
 
   return (
     <div className="relative bg-gradient-to-b from-gray-900 to-gray-800">
@@ -22,20 +25,30 @@ export const Hero: React.FC<HeroProps> = ({ isRecording, onRecordClick }) => {
           </h1>
           <p className="text-xl text-gray-300 mb-12 max-w-2xl mx-auto">
             Share your ideas effortlessly with our lightweight browser-based screen recorder. 
-            No downloads required – just click and start recording.
+            No downloads required – just connect and start recording.
           </p>
           
           <div className="flex flex-col items-center space-y-6">
             <div className="p-8 bg-gray-800/50 rounded-2xl shadow-lg backdrop-blur-sm border border-gray-700">
               <div className="flex flex-col items-center gap-4">
-                <RecordButton isRecording={isRecording} onClick={onRecordClick} />
-                <RecordingStatus isRecording={isRecording} />
-                {!isLoggedIn && (
-                  <p className="text-sm text-gray-400 mt-2">
-                    Connect with OneDrive to automatically save your recordings
-                  </p>
+                {isLoggedIn ? (
+                  <>
+                    <RecordButton 
+                      isRecording={isRecording} 
+                      onClick={onRecordClick}
+                      currentPreset={currentPreset}
+                      onPresetChange={setQualityPreset}
+                    />
+                    <RecordingStatus isRecording={isRecording} />
+                  </>
+                ) : (
+                  <div className="text-center">
+                    <p className="text-gray-400 mb-4">
+                      Connect with OneDrive to start recording
+                    </p>
+                    <OneDriveButton />
+                  </div>
                 )}
-                <OneDriveButton className="mt-4" />
               </div>
             </div>
           </div>
