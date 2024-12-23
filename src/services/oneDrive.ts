@@ -197,6 +197,91 @@ export class OneDriveService {
       throw error;
     }
   }
+
+  async uploadChunk(
+    uploadUrl: string,
+    chunk: Blob,
+    start: number,
+    end: number,
+    totalSize: number
+  ): Promise<{ completed: boolean; fileUrl?: string }> {
+    try {
+      console.log('Uploading chunk to:', uploadUrl);
+      console.log('Chunk details:', {
+        start,
+        end,
+        totalSize,
+        chunkSize: chunk.size,
+        progress: `${Math.round((end / totalSize) * 100)}%`
+      });
+
+      const response = await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: {
+          'Content-Length': chunk.size.toString(),
+          'Content-Range': `bytes ${start}-${end}/${totalSize}`,
+        },
+        body: chunk,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Chunk upload failed:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorText,
+          range: `bytes ${start}-${end}/${totalSize}`,
+        });
+        throw new Error(`Upload failed: ${response.status} ${errorText}`);
+      }
+
+      const responseData = await response.json();
+      
+      // If we get a name back, it means the upload is complete
+      if (responseData.name) {
+        console.log('Upload completed:', responseData);
+        // Get the final file URL
+        const fileUrl = await this.getFileUrl(responseData.id);
+        return { completed: true, fileUrl };
+      }
+
+      return { completed: false };
+    } catch (error) {
+      console.error('Error uploading chunk:', error);
+      throw error;
+    }
+  }
+
+  private async getFileUrl(fileId: string): Promise<string> {
+    const headers = await this.getHeaders();
+    const response = await fetch(
+      `${GRAPH_ENDPOINT}/me/drive/items/${fileId}`,
+      { headers }
+    );
+
+    if (!response.ok) {
+      throw new Error('Failed to get file URL');
+    }
+
+    const data = await response.json();
+    return data['@microsoft.graph.downloadUrl'];
+  }
+
+  // Add method to get folder path
+  async getFolderPath(): Promise<string> {
+    const headers = await this.getHeaders();
+    const response = await fetch(
+      `${GRAPH_ENDPOINT}/me/drive/root:/${FOLDER_NAME}`,
+      { headers }
+    );
+
+    if (!response.ok) {
+      throw new Error('Failed to get folder path');
+    }
+
+    const data = await response.json();
+    return data.webUrl;
+  }
 }
 
 export const oneDriveService = new OneDriveService();

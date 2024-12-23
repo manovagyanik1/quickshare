@@ -7,13 +7,14 @@ import {
 
 interface VideoPlayerProps {
   video: {
+    id: string;
     url: string;
     name: string;
     createdDateTime: string;
-    id: string; // needed for OneDrive link
+    uploadProgress?: number;
+    isUploading?: boolean;
   };
   className?: string;
-  isLoading?: boolean;
 }
 
 const formatVideoName = (filename: string): string => {
@@ -33,7 +34,7 @@ const formatVideoName = (filename: string): string => {
   return filename; // Fallback to original filename if format doesn't match
 };
 
-export const VideoPlayer: React.FC<VideoPlayerProps> = ({ video, className = '', isLoading }) => {
+export const VideoPlayer: React.FC<VideoPlayerProps> = ({ video, className = '' }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -178,152 +179,65 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ video, className = '',
     return () => document.removeEventListener('keydown', handleKeyPress);
   }, []);
 
-  if (isLoading) {
+  const renderPlayButton = () => {
+    if (video.isUploading) {
+      return (
+        <div className="flex flex-col items-center">
+          <div className="relative">
+            <div className="w-16 h-16 rounded-full bg-white/90 flex items-center justify-center">
+              <div className="w-12 h-12 rounded-full border-4 border-blue-500 border-t-transparent animate-spin" />
+            </div>
+            {video.uploadProgress !== undefined && (
+              <div className="absolute -bottom-6 text-sm text-white font-medium">
+                {Math.round(video.uploadProgress)}%
+              </div>
+            )}
+          </div>
+          <div className="mt-8 text-sm text-gray-300">
+            Uploading your recording...
+          </div>
+        </div>
+      );
+    }
+
     return (
-      <div className={`${className} aspect-video flex items-center justify-center`}>
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500" />
-      </div>
+      <button
+        onClick={togglePlay}
+        className="p-4 rounded-full bg-white bg-opacity-90 text-gray-900 hover:bg-opacity-100 transform transition-transform hover:scale-110"
+      >
+        {isPlaying ? <Pause size={32} /> : <Play size={32} />}
+      </button>
     );
-  }
+  };
 
   return (
     <div className={className}>
-      <div 
-        ref={containerRef}
-        className={`relative group aspect-video ${isFullscreen ? 'fixed inset-0 z-50 bg-black' : ''}`}
-        onMouseEnter={() => {
-          setShowControls(true);
-          setShowFullscreenControls(true);
-        }}
-        onMouseMove={() => {
-          setShowControls(true);
-          setShowFullscreenControls(true);
-        }}
-        onMouseLeave={() => {
-          if (!isFullscreen) {
-            setShowControls(false);
-          }
-        }}
-      >
-        <video
-          ref={videoRef}
-          src={video.url}
-          className="w-full h-full object-contain"
-          muted={isMuted}
-          onPlay={() => setIsPlaying(true)}
-          onPause={() => setIsPlaying(false)}
-          onTimeUpdate={handleTimeUpdate}
-          onLoadedMetadata={handleLoadedMetadata}
-        />
+      <div className="relative group aspect-video">
+        {video.url ? (
+          <video
+            ref={videoRef}
+            src={video.url}
+            className="w-full h-full object-cover"
+            muted={isMuted}
+            onPlay={() => setIsPlaying(true)}
+            onPause={() => setIsPlaying(false)}
+          />
+        ) : (
+          <div className="w-full h-full bg-gray-800 flex items-center justify-center">
+            <VideoIcon className="w-12 h-12 text-gray-600" />
+          </div>
+        )}
         
         {/* Video Controls Overlay */}
-        <div 
-          className={`absolute inset-0 ${
-            isFullscreen 
-              ? showFullscreenControls ? 'opacity-100' : 'opacity-0' 
-              : showControls ? 'opacity-100' : 'opacity-0'
-          } transition-opacity duration-300`}
-        >
-          {/* Semi-transparent background overlay */}
-          <div className="absolute inset-0 bg-black bg-opacity-40 pointer-events-none" />
-
-          {/* Top Bar */}
-          <div className="absolute top-0 left-0 right-0 p-4 flex justify-end space-x-2 z-10">
-            <button
-              onClick={openInOneDrive}
-              className="p-2 rounded-full bg-white/90 text-gray-900 hover:bg-white transition-colors"
-              title="Open in OneDrive"
-            >
-              <ExternalLink size={20} />
-            </button>
-            <button
-              onClick={toggleFullscreen}
-              className="p-2 rounded-full bg-white/90 text-gray-900 hover:bg-white transition-colors"
-              title="Toggle Fullscreen"
-            >
-              {isFullscreen ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
-            </button>
-          </div>
-
-          {/* Center Play Button */}
-          <div className="absolute inset-0 flex items-center justify-center">
-            <button
-              onClick={togglePlay}
-              className="p-4 rounded-full bg-white bg-opacity-90 text-gray-900 hover:bg-opacity-100 transform transition-transform hover:scale-110"
-            >
-              {isPlaying ? <Pause size={32} /> : <Play size={32} />}
-            </button>
-          </div>
-
-          {/* Bottom Controls Bar */}
-          <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/60 to-transparent">
-            {/* Progress Bar */}
-            <input
-              type="range"
-              min={0}
-              max={duration}
-              value={currentTime}
-              onChange={handleSeek}
-              className="w-full h-1 mb-4 rounded-lg appearance-none cursor-pointer bg-gray-400"
-            />
-
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <button onClick={togglePlay}>
-                  {isPlaying ? <Pause size={20} /> : <Play size={20} />}
-                </button>
-                <button onClick={skipBackward}>
-                  <SkipBack size={20} />
-                </button>
-                <button onClick={skipForward}>
-                  <SkipForward size={20} />
-                </button>
-                <div className="flex items-center space-x-2">
-                  <button onClick={toggleMute}>
-                    {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
-                  </button>
-                  <input
-                    type="range"
-                    min={0}
-                    max={1}
-                    step={0.1}
-                    value={volume}
-                    onChange={handleVolumeChange}
-                    className="w-20 h-1 rounded-lg appearance-none cursor-pointer bg-gray-400"
-                  />
-                </div>
-                <span className="text-sm text-white">
-                  {formatTime(currentTime)} / {formatTime(duration)}
-                </span>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={shareVideo}
-                  className="text-white hover:text-blue-400"
-                  title="Share"
-                >
-                  <Share2 size={20} />
-                </button>
-              </div>
-            </div>
-          </div>
+        <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">
+          {renderPlayButton()}
         </div>
       </div>
 
       <div className="p-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-white mb-1">
-            {formatVideoName(video.name)}
-          </h3>
-          <button
-            onClick={openInOneDrive}
-            className="text-gray-400 hover:text-blue-400"
-            title="Open in OneDrive"
-          >
-            <ExternalLink size={20} />
-          </button>
-        </div>
+        <h3 className="text-lg font-semibold text-white mb-1">
+          {video.name}
+        </h3>
         <p className="text-sm text-gray-400">
           {new Date(video.createdDateTime).toLocaleString()}
         </p>

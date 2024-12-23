@@ -6,6 +6,19 @@ import { formatFileName } from '../utils/formatFileName';
 import { VideoQualityPreset } from '../utils/types';
 import { VIDEO_PRESETS } from '../utils/videoPresets';
 
+interface UploadSession {
+  uploadUrl: string;
+  fileName: string;
+  totalSize: number;
+}
+
+interface RecordingConfig {
+  videoBitsPerSecond: number;
+  audioBitsPerSecond: number;
+  width: number;
+  height: number;
+}
+
 export const useScreenRecorder = () => {
   const [state, setState] = useState({
     isRecording: false,
@@ -13,14 +26,53 @@ export const useScreenRecorder = () => {
     currentPreset: VIDEO_PRESETS[1] // Default to medium quality
   });
 
-  const uploadSessionRef = useRef<{ uploadUrl: string; fileName: string } | null>(null);
+  const uploadSessionRef = useRef<UploadSession | null>(null);
   const chunksUploaded = useRef<number>(0);
-  
+  const recordingConfigRef = useRef<RecordingConfig | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [newVideoUrl, setNewVideoUrl] = useState<string | null>(null);
+  const [uploadingVideo, setUploadingVideo] = useState<{
+    id: string;
+    progress: number;
+  } | null>(null);
+
   const setQualityPreset = useCallback((preset: VideoQualityPreset) => {
     if (!state.isRecording) {
       setState(prev => ({ ...prev, currentPreset: preset }));
     }
   }, [state.isRecording]);
+
+  // Calculate optimal bitrate based on screen resolution and preset
+  const calculateOptimalBitrate = useCallback((width: number, height: number, preset: VideoQualityPreset): RecordingConfig => {
+    const pixelCount = width * height;
+    const basePixelCount = 1920 * 1080; // Full HD reference
+    const scaleFactor = Math.min(pixelCount / basePixelCount, 1);
+    
+    // Adjust video bitrate based on resolution
+    const videoBitsPerSecond = Math.round(preset.config.videoBitsPerSecond * scaleFactor);
+    
+    return {
+      videoBitsPerSecond,
+      audioBitsPerSecond: preset.config.audioBitsPerSecond,
+      width,
+      height
+    };
+  }, []);
+
+  // Estimate total file size based on bitrate and duration
+  const calculateTotalSize = useCallback((config: RecordingConfig): number => {
+    const estimatedDuration = 3600; // 1 hour max duration
+    const videoBytesPerSecond = config.videoBitsPerSecond / 8;
+    const audioBytesPerSecond = config.audioBitsPerSecond / 8;
+    const totalBytesPerSecond = videoBytesPerSecond + audioBytesPerSecond;
+    
+    return Math.round(totalBytesPerSecond * estimatedDuration);
+  }, []);
+
+  // Add event emitter for new videos
+  const onNewVideo = useCallback((videoUrl: string) => {
+    setNewVideoUrl(videoUrl);
+  }, []);
 
   const startRecording = useCallback(async () => {
     try {
@@ -28,70 +80,82 @@ export const useScreenRecorder = () => {
       const audioStream = await getAudioStream();
       const combinedStream = combineStreams(screenStream, audioStream);
 
-      // Get screen dimensions for bitrate calculation
+      // Get screen dimensions and calculate optimal recording config
       const videoTrack = screenStream.getVideoTracks()[0];
       const settings = videoTrack.getSettings();
       const { width = 1920, height = 1080 } = settings;
 
-      // Adjust bitrate based on resolution if needed
-      const adjustedPreset = {
-        ...state.currentPreset,
-        config: {
-          ...state.currentPreset.config,
-          videoBitsPerSecond: calculateOptimalBitrate(width, height, state.currentPreset)
+      // Calculate optimal recording configuration
+      const recordingConfig = calculateOptimalBitrate(width, height, state.currentPreset);
+      recordingConfigRef.current = recordingConfig;
+
+      const mediaRecorder = createMediaRecorder(combinedStream, {
+        videoBitsPerSecond: recordingConfig.videoBitsPerSecond,
+        audioBitsPerSecond: recordingConfig.audioBitsPerSecond
+      });
+
+      const chunks: Blob[] = [];
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          chunks.push(event.data);
         }
       };
 
-      // Create upload session before starting recording
-      const fileName = formatFileName();
-      const session = await oneDriveService.createUploadSession(fileName);
-      uploadSessionRef.current = { uploadUrl: session.uploadUrl, fileName };
-      chunksUploaded.current = 0;
-
-      const mediaRecorder = createMediaRecorder(combinedStream, adjustedPreset.config);
-
-      mediaRecorder.ondataavailable = async (event) => {
-        if (event.data.size > 0 && uploadSessionRef.current) {
-          const chunk = event.data;
-          const start = chunksUploaded.current;
-          const end = start + chunk.size - 1;
-          
-          try {
-            await oneDriveService.uploadChunk(
-              uploadSessionRef.current.uploadUrl,
-              chunk,
-              start,
-              end,
-              calculateTotalSize(width, height, adjustedPreset.config.videoBitsPerSecond)
-            );
-            chunksUploaded.current += chunk.size;
-          } catch (error) {
-            console.error('Failed to upload chunk:', error);
-          }
-        }
-      };
-
-      mediaRecorder.start(5000); // Send chunks every 5 seconds
+      mediaRecorder.start(1000);
 
       setState(prev => ({
         ...prev,
         isRecording: true,
         mediaRecorder
       }));
+
+      // Store chunks for later upload
+      mediaRecorder.onstop = async () => {
+        const blob = new Blob(chunks, { type: 'video/webm' });
+        const tempId = 'temp-' + Date.now();
+        setUploadingVideo({ id: tempId, progress: 0 });
+
+        try {
+          const fileName = formatFileName();
+          const session = await oneDriveService.createUploadSession(fileName);
+          const result = await oneDriveService.uploadFile(
+            blob,
+            fileName,
+            (progress) => {
+              setUploadingVideo(prev => prev ? { ...prev, progress } : null);
+            }
+          );
+          if (result?.fileUrl) {
+            onNewVideo(tempId, result.fileUrl);
+          }
+        } catch (error) {
+          console.error('Failed to upload video:', error);
+        } finally {
+          setUploadingVideo(null);
+        }
+      };
     } catch (error) {
       console.error('Error starting recording:', error);
       throw error;
     }
-  }, [state.currentPreset]);
+  }, [state.currentPreset, calculateOptimalBitrate]);
 
   const stopRecording = useCallback(async () => {
     if (state.mediaRecorder && state.mediaRecorder.state !== 'inactive') {
+      // Stop the media recorder first to trigger final ondataavailable event
       state.mediaRecorder.stop();
+      
+      // Wait a bit for the final chunk to be processed
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Stop all tracks
       state.mediaRecorder.stream.getTracks().forEach(track => track.stop());
 
       // Final cleanup
       uploadSessionRef.current = null;
       chunksUploaded.current = 0;
+      recordingConfigRef.current = null;
+      setUploadProgress(0);
 
       setState(prev => ({
         ...prev,
@@ -101,24 +165,11 @@ export const useScreenRecorder = () => {
     }
   }, [state.mediaRecorder]);
 
-  // Helper function to calculate optimal bitrate based on resolution
-  const calculateOptimalBitrate = (width: number, height: number, preset: VideoQualityPreset): number => {
-    const pixelCount = width * height;
-    const basePixelCount = 1920 * 1080; // Full HD reference
-    const scaleFactor = Math.min(pixelCount / basePixelCount, 1);
-    
-    return Math.round(preset.config.videoBitsPerSecond * scaleFactor);
-  };
-
-  // Helper function to estimate total size
-  const calculateTotalSize = (width: number, height: number, bitsPerSecond: number): number => {
-    const estimatedDuration = 3600; // 1 hour in seconds
-    return Math.round((bitsPerSecond / 8) * estimatedDuration); // Convert to bytes
-  };
-
   return {
     isRecording: state.isRecording,
     currentPreset: state.currentPreset,
+    uploadProgress,
+    newVideoUrl,
     setQualityPreset,
     startRecording,
     stopRecording,
