@@ -1,8 +1,15 @@
-export const saveRecording = async (blob: Blob) => {
+import { uploadToOneDrive } from '../services/oneDrive';
+
+export const saveRecording = async (blob: Blob, useOneDrive = false) => {
   try {
+    if (useOneDrive) {
+      const fileName = `screen-recording-${Date.now()}.webm`;
+      await uploadToOneDrive(blob, fileName);
+      return;
+    }
+
+    // Default local save behavior
     const suggestedName = `screen-recording-${Date.now()}.webm`;
-    
-    // Use the File System Access API to save the file
     const handle = await window.showSaveFilePicker({
       suggestedName,
       types: [{
