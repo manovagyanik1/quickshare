@@ -1,14 +1,24 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { authService } from '../services/auth';
 import { oneDriveService } from '../services/oneDrive';
 
 export const useOneDrive = () => {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const authenticated = await authService.isAuthenticated();
+      setIsLoggedIn(authenticated);
+    };
+    checkAuth();
+  }, []);
 
   const login = useCallback(async () => {
     try {
       await authService.login();
+      setIsLoggedIn(true);
     } catch (error) {
       console.error('Login failed:', error);
       throw error;
@@ -18,6 +28,7 @@ export const useOneDrive = () => {
   const logout = useCallback(async () => {
     try {
       await authService.logout();
+      setIsLoggedIn(false);
     } catch (error) {
       console.error('Logout failed:', error);
       throw error;
@@ -39,7 +50,7 @@ export const useOneDrive = () => {
   }, []);
 
   return {
-    isLoggedIn: authService.isAuthenticated(),
+    isLoggedIn,
     isUploading,
     uploadProgress,
     login,
