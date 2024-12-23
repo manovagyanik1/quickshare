@@ -12,6 +12,16 @@ interface UploadProgressCallback {
   (progress: number): void;
 }
 
+interface Video {
+  id: string;
+  name: string;
+  url: string;
+  createdDateTime: string;
+  size: number;
+}
+
+const FOLDER_NAME = 'quickshare-recordings';
+
 export class OneDriveService {
   private async getHeaders(): Promise<Headers> {
     const token = await authService.getAccessToken();
@@ -26,10 +36,11 @@ export class OneDriveService {
 
   async createUploadSession(fileName: string): Promise<UploadSessionResponse> {
     try {
-      console.log('Creating upload session for:', fileName); // Debug log
+      const uploadPath = `${FOLDER_NAME}/${fileName}`;
+      console.log('Creating upload session for:', uploadPath); // Debug log
       const headers = await this.getHeaders();
       const response = await fetch(
-        `${GRAPH_ENDPOINT}/me/drive/root:/Videos/${fileName}:/createUploadSession`,
+        `${GRAPH_ENDPOINT}/me/drive/root:/${uploadPath}:/createUploadSession`,
         {
           method: 'POST',
           headers,
@@ -61,11 +72,83 @@ export class OneDriveService {
     }
   }
 
+  private async ensureFolder(): Promise<string> {
+    const headers = await this.getHeaders();
+    
+    // Check if folder exists
+    try {
+      const response = await fetch(
+        `${GRAPH_ENDPOINT}/me/drive/root:/${FOLDER_NAME}`,
+        { headers }
+      );
+      
+      if (response.ok) {
+        const folder = await response.json();
+        return folder.id;
+      }
+    } catch (error) {
+      console.error('Error checking folder:', error);
+    }
+
+    // Create folder if it doesn't exist
+    const response = await fetch(
+      `${GRAPH_ENDPOINT}/me/drive/root/children`,
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          name: FOLDER_NAME,
+          folder: {},
+          '@microsoft.graph.conflictBehavior': 'fail'
+        })
+      }
+    );
+
+    const folder = await response.json();
+    return folder.id;
+  }
+
+  async listVideos(): Promise<Video[]> {
+    try {
+      console.log('Fetching videos from folder:', FOLDER_NAME);
+      const headers = await this.getHeaders();
+      const response = await fetch(
+        `${GRAPH_ENDPOINT}/me/drive/root:/${FOLDER_NAME}:/children?$filter=file ne null&$orderby=createdDateTime desc`,
+        { headers }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Failed to fetch videos:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorText
+        });
+        throw new Error('Failed to fetch videos');
+      }
+
+      const data = await response.json();
+      console.log('Fetched videos:', data.value);
+      
+      return data.value.map((item: any) => ({
+        id: item.id,
+        name: item.name,
+        url: item['@microsoft.graph.downloadUrl'],
+        createdDateTime: item.createdDateTime,
+        size: item.size
+      }));
+    } catch (error) {
+      console.error('Error in listVideos:', error);
+      throw error;
+    }
+  }
+
   async uploadFile(
     file: Blob,
     fileName: string,
     onProgress?: UploadProgressCallback
   ): Promise<void> {
+    await this.ensureFolder();
     try {
       console.log('Starting file upload:', { fileName, size: file.size }); // Debug log
       const session = await this.createUploadSession(fileName);
