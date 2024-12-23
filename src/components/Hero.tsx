@@ -1,6 +1,8 @@
 import React from 'react';
 import { RecordButton } from './RecordButton';
 import { RecordingStatus } from './RecordingStatus';
+import { OneDriveButton } from './OneDriveButton';
+import { useOneDrive } from '../hooks/useOneDrive';
 
 interface HeroProps {
   isRecording: boolean;
@@ -8,6 +10,8 @@ interface HeroProps {
 }
 
 export const Hero: React.FC<HeroProps> = ({ isRecording, onRecordClick }) => {
+  const { isLoggedIn } = useOneDrive();
+
   return (
     <div className="relative bg-gradient-to-b from-gray-900 to-gray-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-32 md:py-40">
@@ -23,8 +27,16 @@ export const Hero: React.FC<HeroProps> = ({ isRecording, onRecordClick }) => {
           
           <div className="flex flex-col items-center space-y-6">
             <div className="p-8 bg-gray-800/50 rounded-2xl shadow-lg backdrop-blur-sm border border-gray-700">
-              <RecordButton isRecording={isRecording} onClick={onRecordClick} />
-              <RecordingStatus isRecording={isRecording} />
+              <div className="flex flex-col items-center gap-4">
+                <RecordButton isRecording={isRecording} onClick={onRecordClick} />
+                <RecordingStatus isRecording={isRecording} />
+                {!isLoggedIn && (
+                  <p className="text-sm text-gray-400 mt-2">
+                    Connect with OneDrive to automatically save your recordings
+                  </p>
+                )}
+                <OneDriveButton className="mt-4" />
+              </div>
             </div>
           </div>
 
