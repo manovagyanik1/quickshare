@@ -5,10 +5,13 @@ import { msalInstance } from './config/msal';
 import App from './App';
 import './index.css';
 
-createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <MsalProvider instance={msalInstance}>
-      <App />
-    </MsalProvider>
-  </React.StrictMode>
-);
+// Initialize MSAL instance before rendering
+msalInstance.initialize().then(() => {
+  createRoot(document.getElementById('root')!).render(
+    <React.StrictMode>
+      <MsalProvider instance={msalInstance}>
+        <App />
+      </MsalProvider>
+    </React.StrictMode>
+  );
+});
