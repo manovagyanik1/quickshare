@@ -1,44 +1,31 @@
 import React from 'react';
-import { RecordButton } from './components/RecordButton';
-import { useScreenRecorder } from './hooks/useScreenRecorder';
-import { RecordingStatus } from './components/RecordingStatus';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { Header } from './components/Header';
+import { Footer } from './components/Footer';
+import { Home } from './pages/Home';
+import { About } from './pages/About';
+import { Contact } from './pages/Contact';
+import { Privacy } from './pages/Privacy';
+import { Terms } from './pages/Terms';
 
-export function App() {
-  const { isRecording, startRecording, stopRecording } = useScreenRecorder();
-
-  const handleRecordClick = async () => {
-    try {
-      if (isRecording) {
-        await stopRecording();
-      } else {
-        await startRecording();
-      }
-    } catch (error) {
-      console.error('Error handling recording:', error);
-    }
-  };
-
+const App = () => {
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-xl p-8 max-w-md w-full space-y-6">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Screen Recorder</h1>
-          <p className="text-gray-600">
-            Click the button below to start recording your screen
-          </p>
-        </div>
-
-        <div className="flex flex-col items-center gap-4">
-          <RecordButton
-            isRecording={isRecording}
-            onClick={handleRecordClick}
-          />
-        </div>
-
-        <RecordingStatus isRecording={isRecording} />
+    <Router>
+      <div className="min-h-screen flex flex-col">
+        <Header />
+        <main className="flex-grow">
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/contact" element={<Contact />} />
+            <Route path="/privacy" element={<Privacy />} />
+            <Route path="/terms" element={<Terms />} />
+          </Routes>
+        </main>
+        <Footer />
       </div>
-    </div>
+    </Router>
   );
-}
+};
 
 export default App;
