@@ -4,8 +4,10 @@ import { createMediaRecorder } from '../utils/recorder';
 import { saveRecording } from '../utils/fileSystem';
 import { VideoQualityPreset } from '../utils/types';
 import { VIDEO_PRESETS } from '../utils/videoPresets';
+import { useOneDrive } from './useOneDrive';
 
 export const useScreenRecorder = () => {
+  const { isLoggedIn } = useOneDrive();
   const [state, setState] = useState({
     isRecording: false,
     mediaRecorder: null as MediaRecorder | null,
@@ -52,7 +54,7 @@ export const useScreenRecorder = () => {
       state.mediaRecorder.stream.getTracks().forEach(track => track.stop());
 
       const recordingBlob = new Blob(chunks.current, { type: 'video/webm' });
-      await saveRecording(recordingBlob);
+      await saveRecording(recordingBlob, isLoggedIn); // Pass isLoggedIn to determine save location
       
       chunks.current = [];
 
@@ -62,7 +64,7 @@ export const useScreenRecorder = () => {
         mediaRecorder: null
       }));
     }
-  }, [state.mediaRecorder]);
+  }, [state.mediaRecorder, isLoggedIn]);
 
   return {
     isRecording: state.isRecording,
