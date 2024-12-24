@@ -28,3 +28,8 @@ dist-ssr
 .env.local
 .env.*.local
 .vercel
+
+# SQLite files
+*.db
+*.db-wal
+*.db-shm
