@@ -325,6 +325,57 @@ export class OneDriveService {
       throw error;
     }
   }
+
+  async getVideoDetails(fileId: string): Promise<Video> {
+    try {
+      const headers = await this.getHeaders();
+      const response = await fetch(
+        `${GRAPH_ENDPOINT}/me/drive/items/${fileId}`,
+        { headers }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to get video details');
+      }
+
+      const data = await response.json();
+      return {
+        id: data.id,
+        name: data.name,
+        url: data['@microsoft.graph.downloadUrl'],
+        createdDateTime: data.createdDateTime,
+        size: data.size
+      };
+    } catch (error) {
+      console.error('Error getting video details:', error);
+      throw error;
+    }
+  }
+
+  async getPublicVideoUrl(fileId: string): Promise<string> {
+    try {
+      // Try to get the public URL without authentication
+      const response = await fetch(
+        `${GRAPH_ENDPOINT}/me/drive/items/${fileId}?select=@microsoft.graph.downloadUrl`,
+        {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json'
+          }
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to get public URL');
+      }
+
+      const data = await response.json();
+      return data['@microsoft.graph.downloadUrl'];
+    } catch (error) {
+      console.error('Error getting public video URL:', error);
+      throw error;
+    }
+  }
 }
 
 export const oneDriveService = new OneDriveService();

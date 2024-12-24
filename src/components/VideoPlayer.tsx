@@ -2,10 +2,13 @@ import React, { useState, useRef } from 'react';
 import { 
   Play, Pause, Volume2, VolumeX, Share2, 
   Maximize2, Minimize2, ExternalLink, 
-  SkipBack, SkipForward, Upload, Trash2
+  SkipBack, SkipForward, Upload, Trash2,
+  VideoIcon
 } from 'lucide-react';
 import { DeleteConfirmation } from './DeleteConfirmation';
 import { oneDriveService } from '../services/oneDrive';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-hot-toast';
 
 interface VideoPlayerProps {
   video: {
@@ -18,6 +21,7 @@ interface VideoPlayerProps {
   };
   className?: string;
   onDelete?: () => void;
+  isTheaterMode?: boolean;
 }
 
 const formatVideoName = (filename: string): string => {
@@ -37,9 +41,14 @@ const formatVideoName = (filename: string): string => {
   return filename; // Fallback to original filename if format doesn't match
 };
 
-export const VideoPlayer: React.FC<VideoPlayerProps> = ({ video, className = '', onDelete }) => {
+export const VideoPlayer: React.FC<VideoPlayerProps> = ({ 
+  video, 
+  className = '', 
+  onDelete,
+  isTheaterMode = false 
+}) => {
   const [isPlaying, setIsPlaying] = useState(false);
-  const [isMuted, setIsMuted] = useState(true);
+  const [isMuted, setIsMuted] = useState(!isTheaterMode);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -50,6 +59,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ video, className = '',
   const containerRef = useRef<HTMLDivElement>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const navigate = useNavigate();
 
   const togglePlay = () => {
     if (videoRef.current) {
@@ -113,23 +123,19 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ video, className = '',
   const toggleFullscreen = async () => {
     if (!containerRef.current) return;
 
-    if (!isFullscreen) {
+    if (isFullscreen) {
       try {
-        if (containerRef.current.requestFullscreen) {
-          await containerRef.current.requestFullscreen();
-        }
-        setIsFullscreen(true);
-      } catch (error) {
-        console.error('Failed to enter fullscreen:', error);
-      }
-    } else {
-      try {
-        if (document.exitFullscreen) {
-          await document.exitFullscreen();
-        }
+        await document.exitFullscreen();
         setIsFullscreen(false);
       } catch (error) {
         console.error('Failed to exit fullscreen:', error);
+      }
+    } else {
+      try {
+        await containerRef.current.requestFullscreen();
+        setIsFullscreen(true);
+      } catch (error) {
+        console.error('Failed to enter fullscreen:', error);
       }
     }
   };
@@ -141,8 +147,11 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ video, className = '',
   };
 
   const shareVideo = () => {
-    navigator.clipboard.writeText(video.url);
-    // You could add a toast notification here
+    // Include the download URL in the shared URL as a query parameter
+    const encodedVideoUrl = encodeURIComponent(video.url);
+    const shareUrl = `${window.location.origin}/video/${video.id}?url=${encodedVideoUrl}`;
+    navigator.clipboard.writeText(shareUrl);
+    toast.success('Video link copied to clipboard!');
   };
 
   const openInOneDrive = () => {
@@ -281,138 +290,139 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ video, className = '',
   };
 
   return (
-    <>
-      <div className={`${className} relative group`}>
-        <div className="relative aspect-video bg-gray-800">
-          {video.url ? (
-            <video
-              ref={videoRef}
-              src={video.url}
-              className="w-full h-full object-cover"
-              muted={isMuted}
-              onPlay={() => setIsPlaying(true)}
-              onPause={() => setIsPlaying(false)}
-              onTimeUpdate={handleTimeUpdate}
-              onLoadedMetadata={handleLoadedMetadata}
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <div className="w-16 h-16 text-gray-600">
-                <VideoIcon />
-              </div>
+    <div 
+      ref={containerRef}
+      className={`${className} relative group ${isTheaterMode ? 'bg-black' : ''}`}
+    >
+      <div className="relative aspect-video bg-gray-800">
+        {video.url ? (
+          <video
+            ref={videoRef}
+            src={video.url}
+            className="w-full h-full object-cover"
+            muted={isMuted}
+            onPlay={() => setIsPlaying(true)}
+            onPause={() => setIsPlaying(false)}
+            onTimeUpdate={handleTimeUpdate}
+            onLoadedMetadata={handleLoadedMetadata}
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <div className="w-16 h-16 text-gray-600">
+              <VideoIcon />
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Video Controls or Upload State */}
-          {video.isUploading ? (
-            renderUploadingState()
-          ) : (
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
-              <div className="absolute top-0 left-0 right-0 p-4 flex justify-end space-x-2 z-10">
-                <button
-                  onClick={openInOneDrive}
-                  className="p-2 rounded-full bg-white/90 text-gray-900 hover:bg-white transition-colors"
-                  title="Open in OneDrive"
-                >
-                  <ExternalLink size={20} />
-                </button>
-                <button
-                  onClick={toggleFullscreen}
-                  className="p-2 rounded-full bg-white/90 text-gray-900 hover:bg-white transition-colors"
-                  title="Toggle Fullscreen"
-                >
-                  {isFullscreen ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
-                </button>
-                <button
-                  onClick={() => setShowDeleteConfirm(true)}
-                  className={`p-2 rounded-full bg-red-500/90 hover:bg-red-600 text-white transition-colors ${
-                    isDeleting ? 'cursor-not-allowed opacity-50' : ''
-                  }`}
-                  disabled={isDeleting}
-                  title="Delete Recording"
-                >
-                  <Trash2 size={20} />
-                </button>
-              </div>
+        {/* Video Controls or Upload State */}
+        {video.isUploading ? (
+          renderUploadingState()
+        ) : (
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="absolute top-0 left-0 right-0 p-4 flex justify-end space-x-2 z-10">
+              <button
+                onClick={openInOneDrive}
+                className="p-2 rounded-full bg-white/90 text-gray-900 hover:bg-white transition-colors"
+                title="Open in OneDrive"
+              >
+                <ExternalLink size={20} />
+              </button>
+              <button
+                onClick={toggleFullscreen}
+                className="p-2 rounded-full bg-white/90 text-gray-900 hover:bg-white transition-colors"
+                title="Toggle Fullscreen"
+              >
+                {isFullscreen ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
+              </button>
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className={`p-2 rounded-full bg-red-500/90 hover:bg-red-600 text-white transition-colors ${
+                  isDeleting ? 'cursor-not-allowed opacity-50' : ''
+                }`}
+                disabled={isDeleting}
+                title="Delete Recording"
+              >
+                <Trash2 size={20} />
+              </button>
+            </div>
 
-              {/* Center Play Button */}
-              <div className="absolute inset-0 flex items-center justify-center">
-                <button
-                  onClick={togglePlay}
-                  className="p-4 rounded-full bg-white bg-opacity-90 text-gray-900 hover:bg-opacity-100 transform transition-transform hover:scale-110"
-                >
-                  {isPlaying ? <Pause size={32} /> : <Play size={32} />}
-                </button>
-              </div>
+            {/* Center Play Button */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              <button
+                onClick={togglePlay}
+                className="p-4 rounded-full bg-white bg-opacity-90 text-gray-900 hover:bg-opacity-100 transform transition-transform hover:scale-110"
+              >
+                {isPlaying ? <Pause size={32} /> : <Play size={32} />}
+              </button>
+            </div>
 
-              {/* Bottom Controls Bar */}
-              <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/60 to-transparent">
-                {/* Progress Bar */}
-                <input
-                  type="range"
-                  min={0}
-                  max={duration}
-                  value={currentTime}
-                  onChange={handleSeek}
-                  className="w-full h-1 mb-4 rounded-lg appearance-none cursor-pointer bg-gray-400"
-                />
+            {/* Bottom Controls Bar */}
+            <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/60 to-transparent">
+              {/* Progress Bar */}
+              <input
+                type="range"
+                min={0}
+                max={duration}
+                value={currentTime}
+                onChange={handleSeek}
+                className="w-full h-1 mb-4 rounded-lg appearance-none cursor-pointer bg-gray-400"
+              />
 
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <button onClick={togglePlay}>
-                      {isPlaying ? <Pause size={20} /> : <Play size={20} />}
-                    </button>
-                    <button onClick={skipBackward}>
-                      <SkipBack size={20} />
-                    </button>
-                    <button onClick={skipForward}>
-                      <SkipForward size={20} />
-                    </button>
-                    <div className="flex items-center space-x-2">
-                      <button onClick={toggleMute}>
-                        {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
-                      </button>
-                      <input
-                        type="range"
-                        min={0}
-                        max={1}
-                        step={0.1}
-                        value={volume}
-                        onChange={handleVolumeChange}
-                        className="w-20 h-1 rounded-lg appearance-none cursor-pointer bg-gray-400"
-                      />
-                    </div>
-                    <span className="text-sm text-white">
-                      {formatTime(currentTime)} / {formatTime(duration)}
-                    </span>
-                  </div>
-
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <button onClick={togglePlay}>
+                    {isPlaying ? <Pause size={20} /> : <Play size={20} />}
+                  </button>
+                  <button onClick={skipBackward}>
+                    <SkipBack size={20} />
+                  </button>
+                  <button onClick={skipForward}>
+                    <SkipForward size={20} />
+                  </button>
                   <div className="flex items-center space-x-2">
-                    <button
-                      onClick={shareVideo}
-                      className="text-white hover:text-blue-400"
-                      title="Share"
-                    >
-                      <Share2 size={20} />
+                    <button onClick={toggleMute}>
+                      {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
                     </button>
+                    <input
+                      type="range"
+                      min={0}
+                      max={1}
+                      step={0.1}
+                      value={volume}
+                      onChange={handleVolumeChange}
+                      className="w-20 h-1 rounded-lg appearance-none cursor-pointer bg-gray-400"
+                    />
                   </div>
+                  <span className="text-sm text-white">
+                    {formatTime(currentTime)} / {formatTime(duration)}
+                  </span>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={shareVideo}
+                    className="text-white hover:text-blue-400"
+                    title="Share"
+                  >
+                    <Share2 size={20} />
+                  </button>
                 </div>
               </div>
             </div>
-          )}
-        </div>
-
-        {/* Video Info */}
-        <div className="p-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-white">
-              {video.isUploading ? 'New Recording' : formatVideoName(video.name)}
-            </h3>
           </div>
-          <p className="text-sm text-gray-400">
-            {new Date(video.createdDateTime).toLocaleString()}
-          </p>
+        )}
+      </div>
+
+      {/* Video Info */}
+      <div className="p-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-white">
+            {video.isUploading ? 'New Recording' : formatVideoName(video.name)}
+          </h3>
         </div>
+        <p className="text-sm text-gray-400">
+          {new Date(video.createdDateTime).toLocaleString()}
+        </p>
       </div>
 
       <DeleteConfirmation
@@ -421,6 +431,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ video, className = '',
         onConfirm={handleDelete}
         videoName={formatVideoName(video.name)}
       />
-    </>
+    </div>
   );
 }; 

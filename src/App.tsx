@@ -8,6 +8,9 @@ import { About } from './pages/About';
 import { Contact } from './pages/Contact';
 import { Privacy } from './pages/Privacy';
 import { Terms } from './pages/Terms';
+import { VideoPage } from './pages/VideoPage';
+import { SharedVideoPage } from './pages/SharedVideoPage';
+import { Toaster } from 'react-hot-toast';
 
 const App = () => {
   return (
@@ -22,11 +25,14 @@ const App = () => {
               <Route path="/contact" element={<Contact />} />
               <Route path="/privacy" element={<Privacy />} />
               <Route path="/terms" element={<Terms />} />
+              <Route path="/video/:videoId" element={<VideoPage />} />
+              <Route path="/shared/:videoId" element={<SharedVideoPage />} />
             </Routes>
           </main>
           <Footer />
         </div>
       </Router>
+      <Toaster position="bottom-center" />
     </HelmetProvider>
   );
 };

@@ -2,7 +2,9 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { oneDriveService } from '../services/oneDrive';
 import { Video as VideoIcon } from 'lucide-react';
 import { useScreenRecorder } from '../hooks/useScreenRecorder';
+import { useOneDrive } from '../hooks/useOneDrive';
 import { VideoPlayer } from './VideoPlayer';
+import { formatFileName } from '../utils/formatFileName';
 
 interface Video {
   id: string;
@@ -20,11 +22,35 @@ export const VideoList: React.FC = () => {
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { uploadingVideo, newVideoUrl } = useScreenRecorder();
+  const { isLoggedIn } = useOneDrive();
 
-  // Initial fetch of videos
+  const fetchVideos = useCallback(async () => {
+    if (!isLoggedIn) {
+      setVideos([]);
+      setIsInitialLoading(false);
+      return;
+    }
+
+    try {
+      setError(null);
+      const fetchedVideos = await oneDriveService.listVideos();
+      setVideos(prev => {
+        // Keep any uploading videos at the top
+        const uploadingVideos = prev.filter(v => v.isUploading);
+        return [...uploadingVideos, ...fetchedVideos];
+      });
+    } catch (error) {
+      console.error('Failed to fetch videos:', error);
+      setError('Failed to load videos. Please try again later.');
+    } finally {
+      setIsInitialLoading(false);
+    }
+  }, [isLoggedIn]);
+
+  // Initial fetch and auth state change handler
   useEffect(() => {
     fetchVideos();
-  }, []);
+  }, [fetchVideos, isLoggedIn]);
 
   // Handle uploading video state
   useEffect(() => {
@@ -33,8 +59,8 @@ export const VideoList: React.FC = () => {
         const existingIndex = prev.findIndex(v => v.id === uploadingVideo.id);
         const updatedVideo: Video = {
           id: uploadingVideo.id,
-          name: formatFileName(), // Use the same format as the actual file
-          url: '', // Will be populated when upload completes
+          name: formatFileName(),
+          url: '',
           createdDateTime: new Date().toISOString(),
           size: 0,
           isUploading: true,
@@ -52,34 +78,14 @@ export const VideoList: React.FC = () => {
   // Handle new video URL
   useEffect(() => {
     if (newVideoUrl) {
-      // Refresh the video list to get the latest video
       fetchVideos();
     }
-  }, [newVideoUrl]);
-
-  const fetchVideos = async () => {
-    try {
-      const fetchedVideos = await oneDriveService.listVideos();
-      setVideos(prev => {
-        // Keep any uploading videos at the top
-        const uploadingVideos = prev.filter(v => v.isUploading);
-        return [...uploadingVideos, ...fetchedVideos];
-      });
-      setError(null);
-    } catch (error) {
-      console.error('Failed to fetch videos:', error);
-      setError('Failed to load videos. Please try again later.');
-    } finally {
-      setIsInitialLoading(false);
-    }
-  };
+  }, [newVideoUrl, fetchVideos]);
 
   const handleVideoDelete = useCallback(() => {
-    // Refresh the video list after deletion
     fetchVideos();
-  }, []);
+  }, [fetchVideos]);
 
-  // Show initial loading state
   if (isInitialLoading) {
     return (
       <div className="flex justify-center items-center py-12">
@@ -88,7 +94,6 @@ export const VideoList: React.FC = () => {
     );
   }
 
-  // Show error state
   if (error) {
     return (
       <div className="text-center py-12">
@@ -103,7 +108,10 @@ export const VideoList: React.FC = () => {
     );
   }
 
-  // Show empty state
+  if (!isLoggedIn) {
+    return null;
+  }
+
   if (videos.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 px-4">
@@ -118,7 +126,6 @@ export const VideoList: React.FC = () => {
     );
   }
 
-  // Show video grid
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {videos.map((video) => (
