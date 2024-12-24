@@ -1,79 +1,74 @@
-import { db } from '../config/firebase.js';
-import { nanoid } from 'nanoid';
-
-const COLLECTION_NAME = 'videos';
+import { supabase } from '../config/supabase.js';
 
 export const VideoModel = {
   async initTable() {
-    // No need to initialize in Firebase
+    // Table should be created via Supabase dashboard or migration
   },
 
   async create({ onedriveId, ownerId, downloadUrl }) {
-    const id = nanoid();
-    const videoRef = db.collection(COLLECTION_NAME).doc(id);
-    
-    const videoData = {
-      onedrive_id: onedriveId,
-      owner_id: ownerId,
-      download_url: downloadUrl,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    };
-    
-    console.log('Creating video in collection:', COLLECTION_NAME, {
-      id,
-      data: videoData,
-      path: videoRef.path
-    });
-    
-    try {
-      await videoRef.set(videoData);
-    } catch (error) {
-      console.error('Firestore error details:', error);
+    const { data, error } = await supabase
+      .from('videos')
+      .insert({
+        onedrive_id: onedriveId,
+        owner_id: ownerId,
+        download_url: downloadUrl,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Supabase error:', error);
       throw error;
     }
 
-    return id;
+    return data.id;
   },
 
   async findById(id) {
-    try {
-      // Try primary id first
-      let video = await db.collection(COLLECTION_NAME).doc(id).get();
+    // Try primary id first
+    let { data: video, error } = await supabase
+      .from('videos')
+      .select('*')
+      .eq('id', id)
+      .single();
 
-      if (video.exists) {
-        return { 
-          id: video.id,
-          ...video.data()
-        };
-      }
-
-      // Try onedrive_id
-      const querySnapshot = await db
-        .collection(COLLECTION_NAME)
-        .where('onedrive_id', '==', id)
-        .get();
-
-      if (!querySnapshot.empty) {
-        const doc = querySnapshot.docs[0];
-        return {
-          id: doc.id,
-          ...doc.data()
-        };
-      }
-
-      return null;
-    } catch (error) {
-      console.error('Firestore error:', error);
-      throw error;
+    if (!error && video) {
+      return video;
     }
+
+    // Try onedrive_id
+    ({ data: video, error } = await supabase
+      .from('videos')
+      .select('*')
+      .eq('onedrive_id', id)
+      .single());
+
+    if (error) {
+      if (error.code !== 'PGRST116') { // Not found error
+        console.error('Supabase error:', error);
+        throw error;
+      }
+      return null;
+    }
+
+    return video;
   },
 
   async updateUrl(id, downloadUrl) {
-    await db.collection(COLLECTION_NAME).doc(id).update({
-      download_url: downloadUrl,
-      url_expiry: new Date(Date.now() + 3600000).toISOString(),
-      updated_at: new Date().toISOString()
-    });
+    const { error } = await supabase
+      .from('videos')
+      .update({
+        download_url: downloadUrl,
+        url_expiry: new Date(Date.now() + 3600000).toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id);
+
+    if (error) {
+      console.error('Supabase error:', error);
+      throw error;
+    }
   }
 }; 
