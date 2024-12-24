@@ -232,6 +232,10 @@ export class OneDriveService {
 
   async listVideos(): Promise<Video[]> {
     try {
+      // First ensure folder exists
+      await this.ensureFolder();
+
+      // Then list videos
       const headers = await this.getHeaders();
       const response = await fetch(
         `${GRAPH_ENDPOINT}/me/drive/root:/${FOLDER_NAME}:/children?$filter=file ne null&$orderby=createdDateTime desc`,
