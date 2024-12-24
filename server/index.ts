@@ -12,7 +12,16 @@ VideoModel.initTable();
 const app = express();
 const port = process.env.PORT || 3000;
 
-app.use(cors());
+app.use(cors({
+  origin: [
+    'http://localhost:5173',
+    'https://quickshare-one.vercel.app',
+    process.env.VITE_FRONTEND_URL // Add your frontend URL
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  credentials: true
+}));
+
 app.use(express.json());
 
 // Routes
