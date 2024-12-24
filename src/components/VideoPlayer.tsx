@@ -103,7 +103,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const toggleFullscreen = async () => {
     if (!containerRef.current) return;
     try {
-      if (isFullscreen) {
+      if (document.fullscreenElement) {
         await document.exitFullscreen();
         setIsFullscreen(false);
       } else {
@@ -112,12 +112,12 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       }
     } catch (error) {
       console.error('Fullscreen error:', error);
+      toast.error('Failed to toggle fullscreen');
     }
   };
 
   const shareVideo = () => {
-    const encodedVideoUrl = encodeURIComponent(video.url);
-    const shareUrl = `${window.location.origin}/video/${video.id}?url=${encodedVideoUrl}`;
+    const shareUrl = `${window.location.origin}/video/${video.id}`;
     navigator.clipboard.writeText(shareUrl);
     toast.success('Video link copied to clipboard!');
   };
@@ -195,19 +195,19 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         )}
 
         {/* Video Controls */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
-          {/* Top Controls */}
-          <div className="absolute top-0 left-0 right-0 p-4 flex justify-end space-x-2">
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+          {/* Top Controls - Make these clickable */}
+          <div className="absolute top-0 left-0 right-0 p-4 flex justify-end space-x-2 pointer-events-auto">
             <button
               onClick={toggleFullscreen}
-              className="p-2 rounded-full bg-white/90 text-gray-900 hover:bg-white transition-colors"
+              className="p-2 rounded-full bg-white/90 text-gray-900 hover:bg-white transition-colors z-50"
             >
               {isFullscreen ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
             </button>
             {onDelete && (
               <button
                 onClick={() => setShowDeleteConfirm(true)}
-                className="p-2 rounded-full bg-red-500/90 hover:bg-red-600 text-white transition-colors"
+                className="p-2 rounded-full bg-red-500/90 hover:bg-red-600 text-white transition-colors z-50"
                 disabled={isDeleting}
               >
                 <Trash2 size={20} />
@@ -215,18 +215,18 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
             )}
           </div>
 
-          {/* Center Play Button */}
-          <div className="absolute inset-0 flex items-center justify-center">
+          {/* Center Play Button - Make this clickable */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-auto">
             <button
               onClick={togglePlay}
-              className="p-4 rounded-full bg-white/90 text-gray-900 hover:bg-white transform transition-all hover:scale-110"
+              className="p-4 rounded-full bg-white/90 text-gray-900 hover:bg-white transform transition-all hover:scale-110 z-50"
             >
               {isPlaying ? <Pause size={32} /> : <Play size={32} />}
             </button>
           </div>
 
-          {/* Bottom Controls */}
-          <div className="absolute bottom-0 left-0 right-0 p-4">
+          {/* Bottom Controls - Make these clickable */}
+          <div className="absolute bottom-0 left-0 right-0 p-4 pointer-events-auto">
             <input
               type="range"
               min={0}

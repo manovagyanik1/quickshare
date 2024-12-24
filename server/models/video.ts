@@ -4,6 +4,7 @@ import { Video, CreateVideoDTO } from '../types/video';
 
 export class VideoModel {
   static initTable(): void {
+    console.log('Initializing videos table...');
     db.exec(`
       CREATE TABLE IF NOT EXISTS videos (
         id TEXT PRIMARY KEY,
@@ -18,19 +19,27 @@ export class VideoModel {
       CREATE INDEX IF NOT EXISTS idx_onedrive_id ON videos(onedrive_id);
       CREATE INDEX IF NOT EXISTS idx_owner_id ON videos(owner_id);
     `);
+    console.log('Videos table initialized');
   }
 
-  static create(data: CreateVideoDTO): string {
+  static create({ onedriveId, ownerId, downloadUrl }: CreateVideoDTO): string {
+    console.log('Creating video:', { onedriveId, ownerId, downloadUrl });
     const id = nanoid();
     const urlExpiry = new Date(Date.now() + 3600000).toISOString(); // 1 hour
 
-    const stmt = db.prepare(`
-      INSERT INTO videos (id, onedrive_id, owner_id, download_url, url_expiry)
-      VALUES (?, ?, ?, ?, ?)
-    `);
+    try {
+      const stmt = db.prepare(`
+        INSERT INTO videos (id, onedrive_id, owner_id, download_url, url_expiry)
+        VALUES (?, ?, ?, ?, ?)
+      `);
 
-    stmt.run(id, data.onedriveId, data.ownerId, data.downloadUrl, urlExpiry);
-    return id;
+      stmt.run(id, onedriveId, ownerId, downloadUrl, urlExpiry);
+      console.log('Video created with ID:', id);
+      return id;
+    } catch (error) {
+      console.error('Error creating video in database:', error);
+      throw error;
+    }
   }
 
   static findById(id: string): Video | undefined {

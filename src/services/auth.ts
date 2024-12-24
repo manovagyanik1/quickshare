@@ -70,7 +70,18 @@ class AuthService {
     try {
       await this.initPromise;
       const accounts = this.msalInstance.getAllAccounts();
-      return accounts[0] || null;
+      const account = accounts[0];
+      
+      // Log the account details to debug
+      console.log('MSAL Account:', account);
+      
+      if (!account) return null;
+
+      // Return the account with guaranteed id
+      return {
+        ...account,
+        id: account.localAccountId || account.homeAccountId || account.username
+      };
     } catch (error) {
       console.error('Failed to get user:', error);
       return null;

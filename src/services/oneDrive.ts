@@ -65,7 +65,7 @@ export class OneDriveService {
     file: Blob,
     fileName: string,
     onProgress?: UploadProgressCallback
-  ): Promise<{ fileUrl: string }> {
+  ): Promise<string> {
     await this.ensureFolder();
     try {
       const session = await this.createUploadSession(fileName);
@@ -77,7 +77,7 @@ export class OneDriveService {
         const chunk = file.slice(offset, Math.min(offset + CHUNK_SIZE, totalSize));
         const range = `bytes ${offset}-${offset + chunk.size - 1}/${totalSize}`;
 
-        const response = await fetch(session.uploadUrl, {
+        const uploadResponse = await fetch(session.uploadUrl, {
           method: 'PUT',
           headers: {
             'Content-Length': chunk.size.toString(),
@@ -86,17 +86,16 @@ export class OneDriveService {
           body: chunk,
         });
 
-        if (!response.ok) {
-          throw new Error(`Upload failed: ${response.status}`);
+        if (!uploadResponse.ok) {
+          throw new Error(`Upload failed: ${uploadResponse.status}`);
         }
 
         offset += chunk.size;
-        const progress = (offset / totalSize) * 100;
-        onProgress?.(progress);
+        onProgress?.((offset / totalSize) * 100);
 
         // Check if this was the last chunk
         if (offset === totalSize) {
-          const responseData = await response.json();
+          const responseData = await uploadResponse.json();
           fileId = responseData.id;
           
           // Make the file public
@@ -105,26 +104,42 @@ export class OneDriveService {
           // Get the download URL
           const downloadUrl = await this.getFileUrl(fileId);
           
+          // Before making the request, let's log the user
+          const user = await authService.getUser();
+          if (!user || !user.id) {
+            throw new Error('User not authenticated');
+          }
+
           // Store in our database
-          const token = await authService.getAccessToken();
-          const apiResponse = await fetch(`${import.meta.env.VITE_API_URL}/api/videos`, {
+          console.log('Uploading to database:', {
+            onedriveId: fileId,
+            ownerId: user.id,
+            downloadUrl
+          });
+
+          const dbResponse = await fetch('/api/videos', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify({
               onedriveId: fileId,
-              ownerId: await authService.getUser().id,
+              ownerId: user.id,
               downloadUrl
-            }),
+            })
           });
-          if (!apiResponse.ok) {
+
+          console.log('Database response:', await dbResponse.clone().text());
+
+          if (!dbResponse.ok) {
+            const errorText = await dbResponse.text();
+            console.error('Server response:', errorText);
             throw new Error('Failed to store video metadata');
           }
-          
-          const { id: videoId } = await apiResponse.json();
-          return { fileUrl: downloadUrl };
+
+          const { id: dbId } = await dbResponse.json();
+          console.log('Saved video with ID:', dbId);
+          return dbId;
         }
       }
 

@@ -1,10 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { oneDriveService } from '../services/oneDrive';
+import { useParams, useNavigate } from 'react-router-dom';
 import { VideoPlayer } from '../components/VideoPlayer';
 import { X } from 'lucide-react';
-import { useOneDrive } from '../hooks/useOneDrive';
-import { Header } from '../components/Header';
+import { toast } from 'react-hot-toast';
 
 interface VideoDetails {
   id: string;
@@ -16,10 +14,8 @@ interface VideoDetails {
 export const VideoPage = () => {
   const { videoId } = useParams<{ videoId: string }>();
   const navigate = useNavigate();
-  const location = useLocation();
   const [video, setVideo] = useState<VideoDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const { isLoggedIn } = useOneDrive();
 
   useEffect(() => {
     const fetchVideo = async () => {
@@ -27,75 +23,59 @@ export const VideoPage = () => {
       
       try {
         setIsLoading(true);
-        // Check if this is a shared URL
-        const params = new URLSearchParams(location.search);
-        if (params.get('url')) {
-          // Redirect to shared video page
-          navigate(`/shared/${videoId}${location.search}`);
-          return;
+        // Fetch video URL from our backend
+        const response = await fetch(`/api/videos/${videoId}`);
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch video');
         }
 
-        if (isLoggedIn) {
-          const videoDetails = await oneDriveService.getVideoDetails(videoId);
-          setVideo(videoDetails);
-        } else {
-          setVideo({
-            id: videoId,
-            name: 'Video Unavailable',
-            url: '',
-            createdDateTime: new Date().toISOString()
-          });
-        }
-      } catch (error) {
-        console.error('Failed to fetch video:', error);
+        const data = await response.json();
+        
         setVideo({
           id: videoId,
-          name: 'Video Unavailable',
-          url: '',
+          name: 'Shared Video', // You might want to store and fetch the actual name
+          url: data.url,
           createdDateTime: new Date().toISOString()
         });
+      } catch (error) {
+        console.error('Error fetching video:', error);
+        toast.error('Failed to load video');
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchVideo();
-  }, [videoId, isLoggedIn, location.search, navigate]);
+  }, [videoId]);
 
   if (isLoading) {
     return (
-      <>
-        <Header />
-        <div className="fixed inset-0 bg-gray-900 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500" />
-        </div>
-      </>
+      <div className="fixed inset-0 bg-gray-900 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500" />
+      </div>
     );
   }
 
   if (!video) {
     return (
-      <>
-        <Header />
-        <div className="fixed inset-0 bg-gray-900 flex items-center justify-center">
-          <div className="text-center">
-            <p className="text-red-400 mb-4">Video not found</p>
-            <button
-              onClick={() => navigate('/')}
-              className="text-blue-400 hover:text-blue-300"
-            >
-              Go back home
-            </button>
-          </div>
+      <div className="fixed inset-0 bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-500 mb-4">Video not found</p>
+          <button
+            onClick={() => navigate('/')}
+            className="text-blue-500 hover:text-blue-400"
+          >
+            Go back home
+          </button>
         </div>
-      </>
+      </div>
     );
   }
 
   return (
     <div className="fixed inset-0 bg-gray-900 z-50">
       <div className="h-full flex flex-col">
-        {/* Header */}
         <div className="flex justify-between items-center p-4 bg-gray-800">
           <h1 className="text-white font-semibold truncate">{video.name}</h1>
           <button
@@ -107,7 +87,6 @@ export const VideoPage = () => {
           </button>
         </div>
 
-        {/* Video Player */}
         <div className="flex-1 relative">
           <VideoPlayer
             video={video}

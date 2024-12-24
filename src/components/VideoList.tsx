@@ -72,7 +72,12 @@ export const VideoList: React.FC = () => {
       {videos.map(video => (
         <div key={video.id} className="bg-gray-800 rounded-lg overflow-hidden">
           <VideoPlayer
-            video={video}
+            video={{
+              id: video.id,
+              url: video.url,
+              name: video.name,
+              createdDateTime: video.createdDateTime
+            }}
             onDelete={() => handleDelete(video.id)}
           />
         </div>
