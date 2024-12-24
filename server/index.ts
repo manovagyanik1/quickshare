@@ -19,13 +19,17 @@ app.use(cors({
 
 app.use(express.json());
 
-// Health check endpoint
-app.get('/api/health', (_, res) => res.send('OK'));
+// Create router for /api routes
+const apiRouter = express.Router();
 
 // Routes
-app.post('/api/videos', videoController.create);
-app.get('/api/videos/:id/url', videoController.getUrl);
-app.get('/api/videos/:id', videoController.getVideo);
+apiRouter.post('/videos', videoController.create);
+apiRouter.get('/videos/:id/url', videoController.getUrl);
+apiRouter.get('/videos/:id', videoController.getVideo);
+apiRouter.get('/health', (_, res) => res.send('OK'));
+
+// Mount the router under /api
+app.use('/api', apiRouter);
 
 // For local development
 if (process.env.NODE_ENV !== 'production') {

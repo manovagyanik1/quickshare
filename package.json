@@ -9,7 +9,7 @@
     "server:watch": "nodemon server/index.ts",
     "build": "vite build",
     "vercel-build": "npm run build && npm run build:server",
-    "build:server": "esbuild server/index.ts --bundle --platform=node --outdir=dist/server",
+    "build:server": "esbuild server/index.ts --bundle --platform=node --outdir=dist/server --external:better-sqlite3",
     "lint": "eslint .",
     "preview": "vite preview"
   },

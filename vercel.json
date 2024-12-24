@@ -3,10 +3,7 @@
   "builds": [
     {
       "src": "server/index.ts",
-      "use": "@vercel/node",
-      "config": {
-        "buildCommand": "npm run build:server"
-      }
+      "use": "@vercel/node"
     },
     {
       "src": "package.json",
@@ -17,7 +14,7 @@
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "/dist/server/index.js/$1"
+      "dest": "/server/index.ts"
     },
     {
       "src": "/assets/(.*)",
