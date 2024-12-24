@@ -1,14 +1,27 @@
-import { PublicClientApplication, AccountInfo, Configuration } from '@azure/msal-browser';
+import { PublicClientApplication, AccountInfo } from '@azure/msal-browser';
 import { msalConfig } from '../config/msal';
+
+const DEFAULT_SCOPES = ['User.Read', 'Files.ReadWrite'];
 
 class AuthService {
   private msalInstance: PublicClientApplication;
   private initialized: boolean = false;
   private initPromise: Promise<void>;
+  private scopes: string[];
 
   constructor() {
-    this.msalInstance = new PublicClientApplication(msalConfig);
+    // Use redirect URI and scopes from environment variables
+    const config = {
+      ...msalConfig,
+      auth: {
+        ...msalConfig.auth,
+        redirectUri: import.meta.env.VITE_REDIRECT_URI
+      }
+    };
+
+    this.msalInstance = new PublicClientApplication(config);
     this.initPromise = this.initialize();
+    this.scopes = (import.meta.env.VITE_SCOPES?.split(',') || DEFAULT_SCOPES).map(s => s.trim());
   }
 
   private async initialize(): Promise<void> {
@@ -30,7 +43,7 @@ class AuthService {
     try {
       await this.initPromise;
       await this.msalInstance.loginRedirect({
-        scopes: ['User.Read', 'Files.ReadWrite']
+        scopes: this.scopes
       });
     } catch (error) {
       console.error('Login failed:', error);
@@ -55,7 +68,7 @@ class AuthService {
       if (!account) return null;
 
       const response = await this.msalInstance.acquireTokenSilent({
-        scopes: ['User.Read', 'Files.ReadWrite'],
+        scopes: this.scopes,
         account
       });
 
