@@ -86,7 +86,6 @@ class AuthService {
       await this.initPromise;
       const account = this.msalInstance.getAllAccounts()[0];
       if (!account) {
-        toast.error('Please connect to OneDrive first');
         return null;
       }
 
