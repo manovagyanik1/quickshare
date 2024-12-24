@@ -1,6 +1,6 @@
-import { Configuration, PublicClientApplication } from '@azure/msal-browser';
+import { Configuration, PublicClientApplication, LogLevel } from '@azure/msal-browser';
 
-export const msalConfig = {
+export const msalConfig: Configuration = {
   auth: {
     clientId: import.meta.env.VITE_AZURE_CLIENT_ID,
     authority: "https://login.microsoftonline.com/common",
@@ -13,29 +13,9 @@ export const msalConfig = {
   },
   system: {
     loggerOptions: {
-      loggerCallback: (level: any, message: string, containsPii: boolean) => {
-        if (containsPii) {
-          return;
-        }
-        switch (level) {
-          case 0:
-            console.error(message);
-            return;
-          case 1:
-            console.warn(message);
-            return;
-          case 2:
-            console.info(message);
-            return;
-          case 3:
-            console.debug(message);
-            return;
-          default:
-            console.log(message);
-            return;
-        }
-      },
-      logLevel: 3,
+      loggerCallback: () => {},
+      logLevel: LogLevel.Error,
+      piiLoggingEnabled: false
     }
   }
 };

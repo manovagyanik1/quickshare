@@ -107,8 +107,6 @@ class AuthService {
       const accounts = this.msalInstance.getAllAccounts();
       const account = accounts[0];
       
-      // Log the account details to debug
-      console.log('MSAL Account:', account);
       
       if (!account) return null;
 

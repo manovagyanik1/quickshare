@@ -1,4 +1,5 @@
 import { supabase } from '../config/supabase.js';
+import { URL_EXPIRY_MS } from '../constants/index.js';
 
 export const VideoModel = {
   async initTable() {
@@ -12,7 +13,7 @@ export const VideoModel = {
         onedrive_id: onedriveId,
         owner_id: ownerId,
         download_url: downloadUrl,
-        url_expiry: new Date(Date.now() + 3600000).toISOString(),
+        url_expiry: new Date(Date.now() + URL_EXPIRY_MS).toISOString(),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
@@ -62,7 +63,7 @@ export const VideoModel = {
       .from('videos')
       .update({
         download_url: downloadUrl,
-        url_expiry: new Date(Date.now() + 3600000).toISOString(),
+        url_expiry: new Date(Date.now() + URL_EXPIRY_MS).toISOString(),
         updated_at: new Date().toISOString()
       })
       .eq('id', id);

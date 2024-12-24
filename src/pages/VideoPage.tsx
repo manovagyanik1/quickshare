@@ -7,6 +7,7 @@ import { authService } from '../services/auth';
 import { oneDriveService } from '../services/oneDrive';
 import { getApiUrl } from '../services/api';
 import { API_CONFIG } from '../services/api';
+import { ERROR_MESSAGES } from '../constants';
 
 interface VideoDetails {
   id: string;
@@ -58,7 +59,6 @@ export const VideoPage = () => {
       
       if (isLoggedIn) {
         try {
-          // Get video directly from OneDrive if user is logged in
           const videoDetails = await oneDriveService.getVideoDetails(videoId);
           videoData = {
             id: videoId,
@@ -71,22 +71,24 @@ export const VideoPage = () => {
           };
         } catch (error) {
           console.error('Failed to get video from OneDrive:', error);
-          // Fallback to our service if OneDrive fails
           const response = await fetch(getApiUrl(API_CONFIG.ENDPOINTS.VIDEO_DETAILS(videoId)));
           if (!response.ok) throw new Error('Failed to fetch video');
           videoData = await response.json();
         }
       } else {
-        // Use our service for non-logged-in users
         const response = await fetch(getApiUrl(API_CONFIG.ENDPOINTS.VIDEO_DETAILS(videoId)));
         if (!response.ok) throw new Error('Failed to fetch video');
         videoData = await response.json();
+        
+        if (videoData.needsAuth) {
+          toast.error(ERROR_MESSAGES.URL_EXPIRED);
+        }
       }
 
       setVideo(videoData);
     } catch (error) {
       console.error('Error fetching video:', error);
-      toast.error('Failed to load video');
+      toast.error(ERROR_MESSAGES.GENERIC_ERROR);
     } finally {
       setIsLoading(false);
     }
@@ -133,11 +135,23 @@ export const VideoPage = () => {
           <div className="lg:w-[75%]">
             {/* Video Player Container */}
             <div className="relative aspect-video bg-gray-800 rounded-lg overflow-hidden">
-              <VideoPlayer
-                video={transformVideoDetails(video)}
-                className="absolute inset-0"
-                isTheaterMode={true}
-              />
+              {video.needsAuth ? (
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6 bg-gray-800">
+                  <p className="text-gray-300 mb-4">{ERROR_MESSAGES.URL_EXPIRED}</p>
+                  <button
+                    onClick={() => authService.login()}
+                    className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                  >
+                    Connect with OneDrive
+                  </button>
+                </div>
+              ) : (
+                <VideoPlayer
+                  video={transformVideoDetails(video)}
+                  className="absolute inset-0"
+                  isTheaterMode={true}
+                />
+              )}
             </div>
 
             {/* Video Info */}

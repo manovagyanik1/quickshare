@@ -191,9 +191,10 @@ export class OneDriveService {
           })
         }
       );
-
       if (!response.ok) {
         throw new Error('Failed to make file public');
+      } else {
+        console.log('File public response:', await response.json());
       }
     } catch (error) {
       console.error('Error making file public:', error);
