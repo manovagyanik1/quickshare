@@ -1,8 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import { config } from 'dotenv';
-import { videoController } from './controllers/videoController';
-import { VideoModel } from './models/video';
+import { videoController } from './controllers/videoController.js';
+import { VideoModel } from './models/video.js';
 
 config();
 
@@ -11,7 +11,6 @@ VideoModel.initTable();
 
 const app = express();
 
-// Configure CORS for production
 app.use(cors({
   origin: '*',
   credentials: true
@@ -39,5 +38,4 @@ if (process.env.NODE_ENV !== 'production') {
   });
 }
 
-// For Vercel serverless deployment
-export default app;
+export default app; 

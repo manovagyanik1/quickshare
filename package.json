@@ -5,11 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "start": "node server/index.ts",
-    "server:watch": "nodemon server/index.ts",
+    "start": "node server/index.js",
+    "server:watch": "nodemon server/index.js",
     "build": "vite build",
-    "vercel-build": "npm run build && npm run build:server",
-    "build:server": "esbuild server/index.ts --bundle --platform=node --outdir=dist/server --external:better-sqlite3",
+    "vercel-build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },

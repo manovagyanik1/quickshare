@@ -1,9 +1,13 @@
 import Database from 'better-sqlite3';
-import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const dbPath = process.env.NODE_ENV === 'production'
   ? '/tmp/data.db'  // Use /tmp for Vercel
-  : path.join(process.cwd(), 'data.db');
+  : join(dirname(__dirname), 'data.db');
 
 const db = new Database(dbPath);
 
