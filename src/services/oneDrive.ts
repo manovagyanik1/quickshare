@@ -1,6 +1,7 @@
 import { authService } from './auth';
 import { toast } from 'react-hot-toast';
 import { getApiUrl } from './api';
+import { API_CONFIG } from './api';
 
 const GRAPH_ENDPOINT = 'https://graph.microsoft.com/v1.0';
 const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks
@@ -134,10 +135,11 @@ export class OneDriveService {
             downloadUrl
           });
 
-          const dbResponse = await fetch(getApiUrl(`/videos`), {
+          const dbResponse = await fetch(getApiUrl(API_CONFIG.ENDPOINTS.VIDEOS), {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
+              Authorization: `Bearer ${await authService.getAccessToken()}`
             },
             body: JSON.stringify({
               onedriveId: fileId,

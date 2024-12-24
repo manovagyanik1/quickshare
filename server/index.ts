@@ -13,9 +13,7 @@ const app = express();
 
 // Configure CORS for production
 app.use(cors({
-  origin: process.env.VERCEL_URL 
-    ? [`https://${process.env.VERCEL_URL}`, 'https://screencast.app']
-    : '*',
+  origin: '*',
   credentials: true
 }));
 

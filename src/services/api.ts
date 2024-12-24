@@ -1,19 +1,18 @@
-const getBaseUrl = () => {
-  // Always use VITE_API_URL if it exists
-  if (import.meta.env.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL;
+const isProd = import.meta.env.PROD;
+
+export const API_CONFIG = {
+  BASE_URL: isProd 
+    ? '/api'
+    : 'http://localhost:3000/api',
+  ENDPOINTS: {
+    VIDEOS: '/videos',
+    VIDEO_DETAILS: (id: string) => `/videos/${id}`,
+    VIDEO_URL: (id: string) => `/videos/${id}/url`,
+    HEALTH: '/health'
   }
-  
-  // Fallback to localhost in development
-  return 'http://localhost:3000';
 };
 
-export const API_URL = getBaseUrl();
-
 export const getApiUrl = (path: string) => {
-  // If API_URL is just '/api', don't add another '/api'
-  if (API_URL === '/api') {
-    return `${API_URL}${path.startsWith('/') ? path : `/${path}`}`;
-  }
-  return `${API_URL}/api${path.startsWith('/') ? path : `/${path}`}`;
-}; 
+  // For development, add /api prefix
+  return `${API_CONFIG.BASE_URL}${path}`;
+};

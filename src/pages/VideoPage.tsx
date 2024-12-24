@@ -5,6 +5,7 @@ import { X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { authService } from '../services/auth';
 import { getApiUrl } from '../services/api';
+import { API_CONFIG } from '../services/api';
 
 interface VideoDetails {
   id: string;
@@ -51,7 +52,7 @@ export const VideoPage = () => {
       try {
         setIsLoading(true);
         const token = await authService.getAccessToken();
-        const response = await fetch(getApiUrl(`/videos/${videoId}`), {
+        const response = await fetch(getApiUrl(API_CONFIG.ENDPOINTS.VIDEO_DETAILS(videoId)), {
           headers: token ? { Authorization: `Bearer ${token}` } : undefined
         });
         
