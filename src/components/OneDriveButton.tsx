@@ -4,10 +4,23 @@ import { useOneDrive } from '../hooks/useOneDrive';
 
 interface OneDriveButtonProps {
   className?: string;
+  onLoginSuccess?: () => void;
 }
 
-export const OneDriveButton: React.FC<OneDriveButtonProps> = ({ className = '' }) => {
+export const OneDriveButton: React.FC<OneDriveButtonProps> = ({ 
+  className = '',
+  onLoginSuccess 
+}) => {
   const { isLoggedIn, isUploading, uploadProgress, login, logout } = useOneDrive();
+
+  const handleLogin = async () => {
+    try {
+      await login();
+      onLoginSuccess?.();
+    } catch (error) {
+      console.error('Login failed:', error);
+    }
+  };
 
   if (isUploading) {
     return (
@@ -40,7 +53,7 @@ export const OneDriveButton: React.FC<OneDriveButtonProps> = ({ className = '' }
 
   return (
     <button
-      onClick={login}
+      onClick={handleLogin}
       className={`flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors ${className}`}
       aria-label="Connect with OneDrive"
     >

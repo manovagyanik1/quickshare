@@ -143,6 +143,32 @@ export class OneDriveService {
     }
   }
 
+  private async makeFilePublic(fileId: string): Promise<void> {
+    try {
+      const headers = await this.getHeaders();
+      const response = await fetch(
+        `${GRAPH_ENDPOINT}/me/drive/items/${fileId}/createLink`,
+        {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            type: 'view',
+            scope: 'anonymous'
+          })
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to make file public');
+      }
+
+      console.log('File made public successfully');
+    } catch (error) {
+      console.error('Error making file public:', error);
+      throw error;
+    }
+  }
+
   async uploadFile(
     file: Blob,
     fileName: string,
@@ -154,6 +180,7 @@ export class OneDriveService {
       const session = await this.createUploadSession(fileName);
       const totalSize = file.size;
       let offset = 0;
+      let fileId: string | null = null;
 
       while (offset < totalSize) {
         const chunk = file.slice(offset, Math.min(offset + CHUNK_SIZE, totalSize));
@@ -179,7 +206,10 @@ export class OneDriveService {
         // Check if this was the last chunk
         if (offset === totalSize) {
           const responseData = await response.json();
-          const fileUrl = await this.getFileUrl(responseData.id);
+          fileId = responseData.id;
+          // Make the file public after successful upload
+          await this.makeFilePublic(fileId);
+          const fileUrl = await this.getFileUrl(fileId);
           return { fileUrl };
         }
       }

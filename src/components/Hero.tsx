@@ -14,6 +14,16 @@ interface HeroProps {
 export const Hero: React.FC<HeroProps> = ({ isRecording, onRecordClick }) => {
   const { isLoggedIn } = useOneDrive();
   const { currentPreset, setQualityPreset } = useScreenRecorder();
+  const [showRecording, setShowRecording] = React.useState(isLoggedIn);
+
+  // Update showRecording when isLoggedIn changes
+  React.useEffect(() => {
+    setShowRecording(isLoggedIn);
+  }, [isLoggedIn]);
+
+  const handleLoginSuccess = () => {
+    setShowRecording(true);
+  };
 
   return (
     <div className="relative bg-gradient-to-b from-gray-900 to-gray-800">
@@ -31,7 +41,7 @@ export const Hero: React.FC<HeroProps> = ({ isRecording, onRecordClick }) => {
           <div className="flex flex-col items-center space-y-6">
             <div className="p-8 bg-gray-800/50 rounded-2xl shadow-lg backdrop-blur-sm border border-gray-700">
               <div className="flex flex-col items-center gap-4">
-                {isLoggedIn ? (
+                {showRecording ? (
                   <>
                     <RecordButton 
                       isRecording={isRecording} 
@@ -46,7 +56,7 @@ export const Hero: React.FC<HeroProps> = ({ isRecording, onRecordClick }) => {
                     <p className="text-gray-400 mb-4">
                       Connect with OneDrive to start recording
                     </p>
-                    <OneDriveButton />
+                    <OneDriveButton onLoginSuccess={handleLoginSuccess} />
                   </div>
                 )}
               </div>
