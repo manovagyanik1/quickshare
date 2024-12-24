@@ -1,36 +1,17 @@
-import { PublicClientApplication, AuthenticationResult } from '@azure/msal-browser';
-import { AUTH_CONFIG } from '../config/auth';
+import { PublicClientApplication, AccountInfo } from '@azure/msal-browser';
+import { msalConfig } from '../config/msal';
 
 class AuthService {
   private msalInstance: PublicClientApplication;
-  private initialized: boolean = false;
 
   constructor() {
-    this.msalInstance = new PublicClientApplication({
-      auth: {
-        clientId: AUTH_CONFIG.clientId,
-        authority: AUTH_CONFIG.authority,
-        redirectUri: AUTH_CONFIG.redirectUri,
-      },
-      cache: {
-        cacheLocation: 'sessionStorage',
-        storeAuthStateInCookie: false,
-      },
-    });
+    this.msalInstance = new PublicClientApplication(msalConfig);
   }
 
-  async initialize(): Promise<void> {
-    if (!this.initialized) {
-      await this.msalInstance.initialize();
-      this.initialized = true;
-    }
-  }
-
-  async login(): Promise<AuthenticationResult> {
+  async login() {
     try {
-      await this.initialize();
-      return await this.msalInstance.loginPopup({
-        scopes: AUTH_CONFIG.scopes,
+      await this.msalInstance.loginRedirect({
+        scopes: ['User.Read', 'Files.ReadWrite']
       });
     } catch (error) {
       console.error('Login failed:', error);
@@ -38,15 +19,23 @@ class AuthService {
     }
   }
 
+  async logout() {
+    try {
+      await this.msalInstance.logoutRedirect();
+    } catch (error) {
+      console.error('Logout failed:', error);
+      throw error;
+    }
+  }
+
   async getAccessToken(): Promise<string | null> {
     try {
-      await this.initialize();
       const account = this.msalInstance.getAllAccounts()[0];
       if (!account) return null;
 
       const response = await this.msalInstance.acquireTokenSilent({
-        scopes: AUTH_CONFIG.scopes,
-        account,
+        scopes: ['User.Read', 'Files.ReadWrite'],
+        account
       });
 
       return response.accessToken;
@@ -56,24 +45,28 @@ class AuthService {
     }
   }
 
-  async logout(): Promise<void> {
+  async getUser(): Promise<AccountInfo | null> {
     try {
-      await this.initialize();
-      await this.msalInstance.logoutPopup();
+      const accounts = this.msalInstance.getAllAccounts();
+      return accounts[0] || null;
     } catch (error) {
-      console.error('Logout failed:', error);
+      console.error('Failed to get user:', error);
+      return null;
+    }
+  }
+
+  async handleRedirectPromise() {
+    try {
+      await this.msalInstance.handleRedirectPromise();
+    } catch (error) {
+      console.error('Handle redirect failed:', error);
       throw error;
     }
   }
 
   async isAuthenticated(): Promise<boolean> {
-    await this.initialize();
-    return this.msalInstance.getAllAccounts().length > 0;
-  }
-
-  async handleRedirectPromise(): Promise<void> {
-    await this.initialize();
-    await this.msalInstance.handleRedirectPromise();
+    const accounts = this.msalInstance.getAllAccounts();
+    return accounts.length > 0;
   }
 }
 

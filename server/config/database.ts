@@ -1,8 +1,12 @@
 import Database from 'better-sqlite3';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { join } from 'path';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DB_PATH = path.join(__dirname, '..', 'data', 'videos.db');
+const db = new Database(join(process.cwd(), 'data.db'));
 
-export const db = new Database(DB_PATH, { verbose: console.log });
+// Enable foreign keys
+db.pragma('foreign_keys = ON');
+
+// Enable WAL mode for better concurrency
+db.pragma('journal_mode = WAL');
+
+export { db };

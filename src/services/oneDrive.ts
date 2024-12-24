@@ -1,75 +1,286 @@
-// Update the uploadFile method in OneDriveService class
-async uploadFile(
-  file: Blob,
-  fileName: string,
-  onProgress?: UploadProgressCallback
-): Promise<{ fileUrl: string }> {
-  await this.ensureFolder();
-  try {
-    console.log('Starting file upload:', { fileName, size: file.size });
-    const session = await this.createUploadSession(fileName);
-    const totalSize = file.size;
-    let offset = 0;
-    let fileId: string | null = null;
+import { authService } from './auth';
 
-    while (offset < totalSize) {
-      const chunk = file.slice(offset, Math.min(offset + CHUNK_SIZE, totalSize));
-      const range = `bytes ${offset}-${offset + chunk.size - 1}/${totalSize}`;
+const GRAPH_ENDPOINT = 'https://graph.microsoft.com/v1.0';
+const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks
+const FOLDER_NAME = 'quickshare-recordings';
 
-      const response = await fetch(session.uploadUrl, {
-        method: 'PUT',
-        headers: {
-          'Content-Length': chunk.size.toString(),
-          'Content-Range': range,
-        },
-        body: chunk,
-      });
+interface UploadSessionResponse {
+  uploadUrl: string;
+  expirationDateTime: string;
+}
+
+interface UploadProgressCallback {
+  (progress: number): void;
+}
+
+interface Video {
+  id: string;
+  name: string;
+  url: string;
+  createdDateTime: string;
+  size: number;
+}
+
+export class OneDriveService {
+  private async getHeaders(): Promise<Headers> {
+    const token = await authService.getAccessToken();
+    if (!token) throw new Error('Not authenticated');
+
+    return new Headers({
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    });
+  }
+
+  async createUploadSession(fileName: string): Promise<UploadSessionResponse> {
+    try {
+      const uploadPath = `${FOLDER_NAME}/${fileName}`;
+      const headers = await this.getHeaders();
+      const response = await fetch(
+        `${GRAPH_ENDPOINT}/me/drive/root:/${uploadPath}:/createUploadSession`,
+        {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            item: {
+              '@microsoft.graph.conflictBehavior': 'rename',
+              name: fileName,
+            },
+          }),
+        }
+      );
 
       if (!response.ok) {
-        throw new Error(`Upload failed: ${response.status}`);
+        throw new Error(`Failed to create upload session: ${response.status}`);
       }
 
-      offset += chunk.size;
-      const progress = (offset / totalSize) * 100;
-      onProgress?.(progress);
+      return await response.json();
+    } catch (error) {
+      console.error('Error in createUploadSession:', error);
+      throw error;
+    }
+  }
 
-      // Check if this was the last chunk
-      if (offset === totalSize) {
-        const responseData = await response.json();
-        fileId = responseData.id;
-        // Make the file public after successful upload
-        await this.makeFilePublic(fileId);
-        
-        // Get the download URL
-        const downloadUrl = await this.getFileUrl(fileId);
-        
-        // Store in SQLite database
-        const token = await authService.getAccessToken();
-        const response = await fetch('/api/videos', {
-          method: 'POST',
+  async uploadFile(
+    file: Blob,
+    fileName: string,
+    onProgress?: UploadProgressCallback
+  ): Promise<{ fileUrl: string }> {
+    await this.ensureFolder();
+    try {
+      const session = await this.createUploadSession(fileName);
+      const totalSize = file.size;
+      let offset = 0;
+      let fileId: string | null = null;
+
+      while (offset < totalSize) {
+        const chunk = file.slice(offset, Math.min(offset + CHUNK_SIZE, totalSize));
+        const range = `bytes ${offset}-${offset + chunk.size - 1}/${totalSize}`;
+
+        const response = await fetch(session.uploadUrl, {
+          method: 'PUT',
           headers: {
-            'Content-Type': 'application/json',
+            'Content-Length': chunk.size.toString(),
+            'Content-Range': range,
           },
-          body: JSON.stringify({
-            onedriveId: fileId,
-            ownerId: 'user123', // Replace with actual user ID
-            downloadUrl,
-            token,
-          }),
+          body: chunk,
         });
-        
+
         if (!response.ok) {
-          throw new Error('Failed to store video metadata');
+          throw new Error(`Upload failed: ${response.status}`);
         }
-        
-        const { id: videoId } = await response.json();
-        return { fileUrl: `/api/videos/${videoId}` };
+
+        offset += chunk.size;
+        const progress = (offset / totalSize) * 100;
+        onProgress?.(progress);
+
+        // Check if this was the last chunk
+        if (offset === totalSize) {
+          const responseData = await response.json();
+          fileId = responseData.id;
+          
+          // Make the file public
+          await this.makeFilePublic(fileId);
+          
+          // Get the download URL
+          const downloadUrl = await this.getFileUrl(fileId);
+          
+          // Store in our database
+          const token = await authService.getAccessToken();
+          const apiResponse = await fetch(`${import.meta.env.VITE_API_URL}/api/videos`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              onedriveId: fileId,
+              ownerId: await authService.getUser().id,
+              downloadUrl
+            }),
+          });
+          if (!apiResponse.ok) {
+            throw new Error('Failed to store video metadata');
+          }
+          
+          const { id: videoId } = await apiResponse.json();
+          return { fileUrl: downloadUrl };
+        }
       }
+
+      throw new Error('Upload completed but failed to get file URL');
+    } catch (error) {
+      console.error('Error in uploadFile:', error);
+      throw error;
+    }
+  }
+
+  private async makeFilePublic(fileId: string): Promise<void> {
+    try {
+      const headers = await this.getHeaders();
+      const response = await fetch(
+        `${GRAPH_ENDPOINT}/me/drive/items/${fileId}/createLink`,
+        {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            type: 'view',
+            scope: 'anonymous'
+          })
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to make file public');
+      }
+    } catch (error) {
+      console.error('Error making file public:', error);
+      throw error;
+    }
+  }
+
+  private async ensureFolder(): Promise<string> {
+    const headers = await this.getHeaders();
+    
+    // Check if folder exists
+    try {
+      const response = await fetch(
+        `${GRAPH_ENDPOINT}/me/drive/root:/${FOLDER_NAME}`,
+        { headers }
+      );
+      
+      if (response.ok) {
+        const folder = await response.json();
+        return folder.id;
+      }
+    } catch (error) {
+      console.error('Error checking folder:', error);
     }
 
-    throw new Error('Upload completed but failed to get file URL');
-  } catch (error) {
-    console.error('Error in uploadFile:', error);
-    throw error;
+    // Create folder if it doesn't exist
+    const response = await fetch(
+      `${GRAPH_ENDPOINT}/me/drive/root/children`,
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          name: FOLDER_NAME,
+          folder: {},
+          '@microsoft.graph.conflictBehavior': 'fail'
+        })
+      }
+    );
+
+    const folder = await response.json();
+    return folder.id;
+  }
+
+  async listVideos(): Promise<Video[]> {
+    try {
+      const headers = await this.getHeaders();
+      const response = await fetch(
+        `${GRAPH_ENDPOINT}/me/drive/root:/${FOLDER_NAME}:/children?$filter=file ne null&$orderby=createdDateTime desc`,
+        { headers }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch videos');
+      }
+
+      const data = await response.json();
+      return data.value.map((item: any) => ({
+        id: item.id,
+        name: item.name,
+        url: item['@microsoft.graph.downloadUrl'],
+        createdDateTime: item.createdDateTime,
+        size: item.size
+      }));
+    } catch (error) {
+      console.error('Error listing videos:', error);
+      throw error;
+    }
+  }
+
+  async getVideoDetails(fileId: string): Promise<Video> {
+    try {
+      const headers = await this.getHeaders();
+      const response = await fetch(
+        `${GRAPH_ENDPOINT}/me/drive/items/${fileId}`,
+        { headers }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to get video details');
+      }
+
+      const data = await response.json();
+      return {
+        id: data.id,
+        name: data.name,
+        url: data['@microsoft.graph.downloadUrl'],
+        createdDateTime: data.createdDateTime,
+        size: data.size
+      };
+    } catch (error) {
+      console.error('Error getting video details:', error);
+      throw error;
+    }
+  }
+
+  private async getFileUrl(fileId: string): Promise<string> {
+    const headers = await this.getHeaders();
+    const response = await fetch(
+      `${GRAPH_ENDPOINT}/me/drive/items/${fileId}`,
+      { headers }
+    );
+
+    if (!response.ok) {
+      throw new Error('Failed to get file URL');
+    }
+
+    const data = await response.json();
+    return data['@microsoft.graph.downloadUrl'];
+  }
+
+  async deleteVideo(fileId: string): Promise<void> {
+    try {
+      const headers = await this.getHeaders();
+      const response = await fetch(
+        `${GRAPH_ENDPOINT}/me/drive/items/${fileId}`,
+        {
+          method: 'DELETE',
+          headers
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to delete video: ${response.status}`);
+      }
+    } catch (error) {
+      console.error('Error deleting video:', error);
+      throw error;
+    }
   }
 }
+
+export const oneDriveService = new OneDriveService();

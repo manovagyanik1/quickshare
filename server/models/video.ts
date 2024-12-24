@@ -1,4 +1,4 @@
-import { db } from '../config/database.js';
+import { db } from '../config/database';
 import { nanoid } from 'nanoid';
 import { Video, CreateVideoDTO } from '../types/video';
 
@@ -20,16 +20,16 @@ export class VideoModel {
     `);
   }
 
-  static create({ onedriveId, ownerId, downloadUrl }: CreateVideoDTO): string {
+  static create(data: CreateVideoDTO): string {
     const id = nanoid();
-    const urlExpiry = new Date(Date.now() + 3600000).toISOString(); // 1 hour from now
+    const urlExpiry = new Date(Date.now() + 3600000).toISOString(); // 1 hour
 
     const stmt = db.prepare(`
       INSERT INTO videos (id, onedrive_id, owner_id, download_url, url_expiry)
       VALUES (?, ?, ?, ?, ?)
     `);
 
-    stmt.run(id, onedriveId, ownerId, downloadUrl, urlExpiry);
+    stmt.run(id, data.onedriveId, data.ownerId, data.downloadUrl, urlExpiry);
     return id;
   }
 
