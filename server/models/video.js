@@ -12,6 +12,7 @@ export const VideoModel = {
         onedrive_id: onedriveId,
         owner_id: ownerId,
         download_url: downloadUrl,
+        url_expiry: new Date(Date.now() + 3600000).toISOString(),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
@@ -71,4 +72,4 @@ export const VideoModel = {
       throw error;
     }
   }
-}; 
+};

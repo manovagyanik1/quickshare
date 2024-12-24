@@ -1,12 +1,12 @@
 import React from 'react';
-import { Camera, Menu, X, LogOut } from 'lucide-react';
+import { Camera, Menu, X, LogOut, Cloud } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useOneDrive } from '../hooks/useOneDrive';
 
 export const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const { isLoggedIn, logout } = useOneDrive();
+  const { isLoggedIn, login, logout } = useOneDrive();
 
   return (
     <header className="bg-gray-900 border-b border-gray-800">
@@ -24,7 +24,16 @@ export const Header = () => {
             <Link to="/" className="text-gray-300 hover:text-white transition-colors">Home</Link>
             <Link to="/about" className="text-gray-300 hover:text-white transition-colors">About</Link>
             <Link to="/contact" className="text-gray-300 hover:text-white transition-colors">Contact</Link>
-            {isLoggedIn && (
+            {!isLoggedIn ? (
+              <button
+                onClick={login}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                title="Connect with OneDrive"
+              >
+                <Cloud size={20} />
+                <span>Connect OneDrive</span>
+              </button>
+            ) : (
               <button
                 onClick={logout}
                 className="flex items-center gap-2 text-gray-300 hover:text-red-400 transition-colors"
@@ -72,7 +81,18 @@ export const Header = () => {
               >
                 Contact
               </Link>
-              {isLoggedIn && (
+              {!isLoggedIn ? (
+                <button
+                  onClick={() => {
+                    login();
+                    setIsMenuOpen(false);
+                  }}
+                  className="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2"
+                >
+                  <Cloud size={20} />
+                  <span>Connect OneDrive</span>
+                </button>
+              ) : (
                 <button
                   onClick={() => {
                     logout();

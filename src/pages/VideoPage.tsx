@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { VideoPlayer } from '../components/VideoPlayer';
 import { X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { authService } from '../services/auth';
+import { oneDriveService } from '../services/oneDrive';
 import { getApiUrl } from '../services/api';
 import { API_CONFIG } from '../services/api';
 
@@ -14,6 +15,7 @@ interface VideoDetails {
   updatedAt: string;
   ownerId: string;
   downloadUrl: string;
+  onedriveId: string;
   urlExpiry?: string;
   needsAuth?: boolean;
   description?: string;
@@ -45,33 +47,54 @@ export const VideoPage = () => {
   const [video, setVideo] = useState<VideoDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchVideo = async () => {
-      if (!videoId) return;
+  const fetchVideo = useCallback(async () => {
+    if (!videoId) return;
+    
+    try {
+      setIsLoading(true);
       
-      try {
-        setIsLoading(true);
-        const token = await authService.getAccessToken();
-        const response = await fetch(getApiUrl(API_CONFIG.ENDPOINTS.VIDEO_DETAILS(videoId)), {
-          headers: token ? { Authorization: `Bearer ${token}` } : undefined
-        });
-        
-        if (!response.ok) {
-          throw new Error('Failed to fetch video');
+      const isLoggedIn = await authService.isAuthenticated();
+      let videoData;
+      
+      if (isLoggedIn) {
+        try {
+          // Get video directly from OneDrive if user is logged in
+          const videoDetails = await oneDriveService.getVideoDetails(videoId);
+          videoData = {
+            id: videoId,
+            name: videoDetails.name,
+            createdAt: videoDetails.createdDateTime,
+            updatedAt: new Date().toISOString(),
+            downloadUrl: videoDetails.url,
+            onedriveId: videoDetails.id,
+            size: videoDetails.size
+          };
+        } catch (error) {
+          console.error('Failed to get video from OneDrive:', error);
+          // Fallback to our service if OneDrive fails
+          const response = await fetch(getApiUrl(API_CONFIG.ENDPOINTS.VIDEO_DETAILS(videoId)));
+          if (!response.ok) throw new Error('Failed to fetch video');
+          videoData = await response.json();
         }
-
-        const data = await response.json();
-        setVideo(data);
-      } catch (error) {
-        console.error('Error fetching video:', error);
-        toast.error('Failed to load video');
-      } finally {
-        setIsLoading(false);
+      } else {
+        // Use our service for non-logged-in users
+        const response = await fetch(getApiUrl(API_CONFIG.ENDPOINTS.VIDEO_DETAILS(videoId)));
+        if (!response.ok) throw new Error('Failed to fetch video');
+        videoData = await response.json();
       }
-    };
 
-    fetchVideo();
+      setVideo(videoData);
+    } catch (error) {
+      console.error('Error fetching video:', error);
+      toast.error('Failed to load video');
+    } finally {
+      setIsLoading(false);
+    }
   }, [videoId]);
+
+  useEffect(() => {
+    fetchVideo();
+  }, [fetchVideo]);
 
   if (isLoading) {
     return (

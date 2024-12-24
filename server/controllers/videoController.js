@@ -97,6 +97,7 @@ export const videoController = {
         createdAt: video.created_at,
         updatedAt: video.updated_at,
         ownerId: video.owner_id,
+        onedriveId: video.onedrive_id,
         downloadUrl,
         urlExpiry: video.url_expiry,
         needsAuth: now >= expiry && !token
