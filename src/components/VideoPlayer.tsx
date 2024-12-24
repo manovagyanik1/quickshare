@@ -42,6 +42,17 @@ const formatVideoName = (filename: string): string => {
   return filename;
 };
 
+const formatDateTime = (dateString: string): string => {
+  return new Date(dateString).toLocaleString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  });
+};
+
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 export const VideoPlayer: React.FC<VideoPlayerProps> = ({
@@ -329,7 +340,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
           {formatVideoName(video.name)}
         </h3>
         <p className="text-sm text-gray-400">
-          {new Date(video.createdAt).toLocaleString()}
+          {formatDateTime(video.createdDateTime)}
         </p>
       </div>
 
@@ -337,7 +348,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         isOpen={showDeleteConfirm}
         onClose={() => setShowDeleteConfirm(false)}
         onConfirm={handleDelete}
-        isDeleting={isDeleting}
         videoName={formatVideoName(video.name)}
       />
     </div>

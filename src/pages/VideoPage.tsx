@@ -28,6 +28,17 @@ const transformVideoDetails = (details: VideoDetails) => {
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
+const formatDateTime = (dateString: string): string => {
+  return new Date(dateString).toLocaleString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  });
+};
+
 export const VideoPage = () => {
   const { videoId } = useParams<{ videoId: string }>();
   const navigate = useNavigate();
@@ -112,11 +123,7 @@ export const VideoPage = () => {
                     {video.name}
                   </h1>
                   <p className="text-sm text-gray-400">
-                    {new Date(video.createdAt).toLocaleDateString(undefined, {
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric'
-                    })}
+                    {formatDateTime(video.createdAt)}
                   </p>
                 </div>
                 <button
@@ -148,7 +155,7 @@ export const VideoPage = () => {
               <div className="space-y-2 text-sm text-gray-300">
                 <p>
                   <span className="text-gray-400">Uploaded:</span>{' '}
-                  {new Date(video.createdAt).toLocaleString()}
+                  {formatDateTime(video.createdAt)}
                 </p>
                 <p>
                   <span className="text-gray-400">Owner:</span>{' '}
