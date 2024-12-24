@@ -1,10 +1,12 @@
 import React from 'react';
-import { Camera, Menu, X } from 'lucide-react';
+import { Camera, Menu, X, LogOut } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useOneDrive } from '../hooks/useOneDrive';
 
 export const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { isLoggedIn, logout } = useOneDrive();
 
   return (
     <header className="bg-gray-900 border-b border-gray-800">
@@ -22,6 +24,16 @@ export const Header = () => {
             <Link to="/" className="text-gray-300 hover:text-white transition-colors">Home</Link>
             <Link to="/about" className="text-gray-300 hover:text-white transition-colors">About</Link>
             <Link to="/contact" className="text-gray-300 hover:text-white transition-colors">Contact</Link>
+            {isLoggedIn && (
+              <button
+                onClick={logout}
+                className="flex items-center gap-2 text-gray-300 hover:text-red-400 transition-colors"
+                title="Disconnect OneDrive"
+              >
+                <LogOut size={20} />
+                <span>Disconnect</span>
+              </button>
+            )}
           </div>
 
           {/* Mobile menu button */}
@@ -60,6 +72,18 @@ export const Header = () => {
               >
                 Contact
               </Link>
+              {isLoggedIn && (
+                <button
+                  onClick={() => {
+                    logout();
+                    setIsMenuOpen(false);
+                  }}
+                  className="w-full text-left px-3 py-2 text-gray-300 hover:text-red-400 hover:bg-gray-800 rounded-md flex items-center gap-2"
+                >
+                  <LogOut size={20} />
+                  <span>Disconnect OneDrive</span>
+                </button>
+              )}
             </div>
           </div>
         )}
