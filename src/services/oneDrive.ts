@@ -24,6 +24,13 @@ interface Video {
   size: number;
 }
 
+export interface VideoMetadata {
+  onedriveId: string;
+  ownerId: string;
+  downloadUrl: string;
+  token: string;
+}
+
 export class OneDriveService {
   private async getHeaders(): Promise<Headers> {
     const token = await authService.getAccessToken();

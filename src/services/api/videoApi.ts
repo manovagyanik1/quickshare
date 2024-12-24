@@ -1,5 +1,4 @@
-import { VideoMetadata } from '../oneDrive/types';
-
+import { VideoMetadata } from '../oneDrive';
 class VideoApi {
   async createVideo(metadata: VideoMetadata): Promise<{ id: string }> {
     const response = await fetch('/api/videos', {
