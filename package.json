@@ -8,7 +8,8 @@
     "start": "node server/index.ts",
     "server:watch": "nodemon server/index.ts",
     "build": "vite build",
-    "vercel-build": "vite build",
+    "vercel-build": "npm run build && npm run build:server",
+    "build:server": "esbuild server/index.ts --bundle --platform=node --outdir=dist/server",
     "lint": "eslint .",
     "preview": "vite preview"
   },
@@ -47,6 +48,7 @@
     "tailwindcss": "^3.4.1",
     "tsx": "^4.7.1",
     "typescript": "^5.2.2",
-    "vite": "^5.1.0"
+    "vite": "^5.1.0",
+    "esbuild": "^0.20.1"
   }
 }
