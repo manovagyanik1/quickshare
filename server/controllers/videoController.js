@@ -5,10 +5,10 @@ export const videoController = {
   async create(req, res) {
     try {
       const { onedriveId, ownerId, downloadUrl } = req.body;
-      
+
       if (!onedriveId || !ownerId || !downloadUrl) {
         console.error('Missing required fields:', { onedriveId, ownerId, downloadUrl });
-        return res.status(400).json({ 
+        return res.status(400).json({
           error: 'Missing required fields',
           missing: {
             onedriveId: !onedriveId,
@@ -30,7 +30,7 @@ export const videoController = {
     try {
       const { id } = req.params;
       const { token } = req.query;
-      
+
       const video = await VideoModel.findById(id);
       if (!video) {
         return res.status(404).json({ error: 'Video not found' });
@@ -38,7 +38,7 @@ export const videoController = {
 
       const now = new Date();
       const expiry = video.url_expiry ? new Date(video.url_expiry) : new Date(0);
-      
+
       if (now < expiry && video.download_url) {
         return res.json({ url: video.download_url });
       }
@@ -57,7 +57,7 @@ export const videoController = {
         }
       }
 
-      return res.status(401).json({ 
+      return res.status(401).json({
         error: 'Token required for URL refresh',
         needsAuth: true
       });
@@ -71,8 +71,8 @@ export const videoController = {
     try {
       const { id } = req.params;
       const { token } = req.query;
-      
-      const video = VideoModel.findById(id);
+
+      const video = await VideoModel.findById(id);
       if (!video) {
         return res.status(404).json({ error: 'Video not found' });
       }
@@ -106,4 +106,4 @@ export const videoController = {
       res.status(500).json({ error: 'Failed to get video' });
     }
   }
-}; 
+};
