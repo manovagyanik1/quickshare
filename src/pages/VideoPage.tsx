@@ -4,6 +4,7 @@ import { VideoPlayer } from '../components/VideoPlayer';
 import { X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { authService } from '../services/auth';
+import { getApiUrl } from '../services/api';
 
 interface VideoDetails {
   id: string;
@@ -52,7 +53,9 @@ export const VideoPage = () => {
       try {
         setIsLoading(true);
         const token = await authService.getAccessToken();
-        const response = await fetch(`${API_URL}/api/videos/${videoId}${token ? `?token=${token}` : ''}`);
+        const response = await fetch(getApiUrl(`/videos/${videoId}`), {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined
+        });
         
         if (!response.ok) {
           throw new Error('Failed to fetch video');

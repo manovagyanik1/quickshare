@@ -7,11 +7,15 @@ export default defineConfig({
     exclude: ['lucide-react'],
   },
   server: {
-    proxy: {
+    proxy: process.env.NODE_ENV === 'development' ? {
       '/api': {
-        target: 'http://localhost:3000',
+        target: process.env.VITE_API_URL || 'http://localhost:3000',
         changeOrigin: true,
       },
-    },
+    } : undefined
   },
+  build: {
+    outDir: 'dist/client',
+    sourcemap: true,
+  }
 });
