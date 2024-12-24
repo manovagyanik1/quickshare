@@ -16,6 +16,15 @@ interface VideoDetails {
   needsAuth?: boolean;
 }
 
+const transformVideoDetails = (details: VideoDetails) => {
+  return {
+    id: details.id,
+    url: details.downloadUrl,
+    name: details.name,
+    createdDateTime: details.createdAt
+  };
+};
+
 export const VideoPage = () => {
   const { videoId } = useParams<{ videoId: string }>();
   const navigate = useNavigate();
@@ -88,7 +97,7 @@ export const VideoPage = () => {
 
         <div className="flex-1 relative">
           <VideoPlayer
-            video={video}
+            video={transformVideoDetails(video)}
             className="absolute inset-0"
           />
         </div>
