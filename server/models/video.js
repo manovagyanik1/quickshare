@@ -1,55 +1,79 @@
-import { db } from '../db/index.js';
+import { db } from '../config/firebase.js';
 import { nanoid } from 'nanoid';
 
+const COLLECTION_NAME = 'videos';
+
 export const VideoModel = {
-  initTable() {
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS videos (
-        id TEXT PRIMARY KEY,
-        onedrive_id TEXT NOT NULL,
-        owner_id TEXT NOT NULL,
-        download_url TEXT,
-        url_expiry TEXT,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-      )
-    `);
+  async initTable() {
+    // No need to initialize in Firebase
   },
 
-  create({ onedriveId, ownerId, downloadUrl }) {
-    const stmt = db.prepare(`
-      INSERT INTO videos (id, onedrive_id, owner_id, download_url, created_at, updated_at)
-      VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-    `);
-
+  async create({ onedriveId, ownerId, downloadUrl }) {
     const id = nanoid();
-    stmt.run(id, onedriveId, ownerId, downloadUrl);
+    const videoRef = db.collection(COLLECTION_NAME).doc(id);
+    
+    const videoData = {
+      onedrive_id: onedriveId,
+      owner_id: ownerId,
+      download_url: downloadUrl,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    
+    console.log('Creating video in collection:', COLLECTION_NAME, {
+      id,
+      data: videoData,
+      path: videoRef.path
+    });
+    
+    try {
+      await videoRef.set(videoData);
+    } catch (error) {
+      console.error('Firestore error details:', error);
+      throw error;
+    }
+
     return id;
   },
 
-  findById(id) {
-    // First try to find by primary id
-    const stmt = db.prepare('SELECT * FROM videos WHERE id = ?');
-    let video = stmt.get(id);
+  async findById(id) {
+    try {
+      // Try primary id first
+      let video = await db.collection(COLLECTION_NAME).doc(id).get();
 
-    // If not found, try to find by onedrive_id
-    if (!video) {
-      const onedriveStmt = db.prepare('SELECT * FROM videos WHERE onedrive_id = ?');
-      video = onedriveStmt.get(id);
+      if (video.exists) {
+        return { 
+          id: video.id,
+          ...video.data()
+        };
+      }
+
+      // Try onedrive_id
+      const querySnapshot = await db
+        .collection(COLLECTION_NAME)
+        .where('onedrive_id', '==', id)
+        .get();
+
+      if (!querySnapshot.empty) {
+        const doc = querySnapshot.docs[0];
+        return {
+          id: doc.id,
+          ...doc.data()
+        };
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Firestore error:', error);
+      throw error;
     }
-
-    return video;
   },
 
-  updateUrl(id, downloadUrl) {
-    const urlExpiry = new Date(Date.now() + 3600000).toISOString();
-    
-    const stmt = db.prepare(`
-      UPDATE videos 
-      SET download_url = ?, url_expiry = ?, updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `);
-
-    stmt.run(downloadUrl, urlExpiry, id);
+  async updateUrl(id, downloadUrl) {
+    await db.collection(COLLECTION_NAME).doc(id).update({
+      download_url: downloadUrl,
+      url_expiry: new Date(Date.now() + 3600000).toISOString(),
+      updated_at: new Date().toISOString()
+    });
   }
 }; 

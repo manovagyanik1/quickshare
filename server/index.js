@@ -1,10 +1,11 @@
+import { config } from 'dotenv';
+// Load environment variables first
+config();
+
 import express from 'express';
 import cors from 'cors';
-import { config } from 'dotenv';
 import { videoController } from './controllers/videoController.js';
 import { VideoModel } from './models/video.js';
-
-config();
 
 // Initialize database tables
 VideoModel.initTable();

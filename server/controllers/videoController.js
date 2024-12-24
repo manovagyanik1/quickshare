@@ -18,7 +18,7 @@ export const videoController = {
         });
       }
 
-      const id = VideoModel.create({ onedriveId, ownerId, downloadUrl });
+      const id = await VideoModel.create({ onedriveId, ownerId, downloadUrl });
       res.status(201).json({ id });
     } catch (error) {
       console.error('Error creating video:', error);
@@ -31,7 +31,7 @@ export const videoController = {
       const { id } = req.params;
       const { token } = req.query;
       
-      const video = VideoModel.findById(id);
+      const video = await VideoModel.findById(id);
       if (!video) {
         return res.status(404).json({ error: 'Video not found' });
       }
@@ -46,7 +46,7 @@ export const videoController = {
       if (token) {
         try {
           const newUrl = await oneDriveService.getVideoDetails(video.onedrive_id, token);
-          VideoModel.updateUrl(id, newUrl.downloadUrl);
+          await VideoModel.updateUrl(id, newUrl.downloadUrl);
           return res.json({ url: newUrl.downloadUrl });
         } catch (error) {
           console.error('Failed to refresh URL:', error);
