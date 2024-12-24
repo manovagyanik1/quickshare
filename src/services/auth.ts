@@ -1,5 +1,6 @@
 import { PublicClientApplication, AccountInfo } from '@azure/msal-browser';
 import { msalConfig } from '../config/msal';
+import { toast } from 'react-hot-toast';
 
 const DEFAULT_SCOPES = ['User.Read', 'Files.ReadWrite'];
 
@@ -61,11 +62,33 @@ class AuthService {
     }
   }
 
+  private handleAuthError(error: any) {
+    console.error('Auth error:', error);
+    if (error.errorCode === 'consent_required' || 
+        error.errorCode === 'interaction_required' ||
+        error.errorCode === 'login_required') {
+      toast.error('Please reconnect to OneDrive');
+      this.login();
+      return;
+    }
+
+    if (error.errorCode === 'token_expired') {
+      this.logout();
+      toast.error('Session expired. Please login again.');
+      return;
+    }
+
+    toast.error('Authentication error. Please try again.');
+  }
+
   async getAccessToken(): Promise<string | null> {
     try {
       await this.initPromise;
       const account = this.msalInstance.getAllAccounts()[0];
-      if (!account) return null;
+      if (!account) {
+        toast.error('Please connect to OneDrive first');
+        return null;
+      }
 
       const response = await this.msalInstance.acquireTokenSilent({
         scopes: this.scopes,
@@ -73,8 +96,8 @@ class AuthService {
       });
 
       return response.accessToken;
-    } catch (error) {
-      console.error('Failed to get access token:', error);
+    } catch (error: any) {
+      this.handleAuthError(error);
       return null;
     }
   }

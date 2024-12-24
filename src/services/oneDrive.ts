@@ -1,4 +1,5 @@
 import { authService } from './auth';
+import { toast } from 'react-hot-toast';
 
 const GRAPH_ENDPOINT = 'https://graph.microsoft.com/v1.0';
 const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks
@@ -60,6 +61,21 @@ export class OneDriveService {
       console.error('Error in createUploadSession:', error);
       throw error;
     }
+  }
+
+  private async handleGraphError(error: any) {
+    if (error.status === 401 || error.status === 403) {
+      toast.error('Please reconnect to OneDrive');
+      await authService.login();
+      return;
+    }
+
+    if (error.status === 404) {
+      toast.error('Video not found in OneDrive');
+      return;
+    }
+
+    toast.error('OneDrive error. Please try again.');
   }
 
   async uploadFile(
@@ -145,8 +161,9 @@ export class OneDriveService {
       }
 
       throw new Error('Upload completed but failed to get file URL');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error in uploadFile:', error);
+      await this.handleGraphError(error);
       throw error;
     }
   }

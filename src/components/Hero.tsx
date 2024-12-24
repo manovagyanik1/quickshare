@@ -1,81 +1,108 @@
-import React from 'react';
+import { Link } from 'react-router-dom';
+import { authService } from '../services/auth';
+import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { RecordButton } from './RecordButton';
-import { RecordingStatus } from './RecordingStatus';
-import { OneDriveButton } from './OneDriveButton';
-import { useOneDrive } from '../hooks/useOneDrive';
-import { VIDEO_PRESETS } from '../utils/videoPresets';
 import { useScreenRecorder } from '../hooks/useScreenRecorder';
+import { VIDEO_PRESETS } from '../utils/videoPresets';
 
-interface HeroProps {
-  isRecording: boolean;
-  onRecordClick: () => void;
-}
+export const Hero = () => {
+  const navigate = useNavigate();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [currentPreset, setCurrentPreset] = useState(VIDEO_PRESETS[1]); // Default to 720p
+  const { isRecording, startRecording, stopRecording } = useScreenRecorder();
 
-export const Hero: React.FC<HeroProps> = ({ isRecording, onRecordClick }) => {
-  const { isLoggedIn } = useOneDrive();
-  const { currentPreset, setQualityPreset } = useScreenRecorder();
-  const [showRecording, setShowRecording] = React.useState(isLoggedIn);
+  useEffect(() => {
+    const checkAuth = async () => {
+      const isAuth = await authService.isAuthenticated();
+      setIsAuthenticated(isAuth);
+    };
+    checkAuth();
+  }, []);
 
-  // Update showRecording when isLoggedIn changes
-  React.useEffect(() => {
-    setShowRecording(isLoggedIn);
-  }, [isLoggedIn]);
-
-  const handleLoginSuccess = () => {
-    setShowRecording(true);
+  const handleRecordClick = async () => {
+    if (isRecording) {
+      await stopRecording();
+    } else {
+      await startRecording(currentPreset);
+    }
   };
 
-  return (
-    <div className="relative bg-gradient-to-b from-gray-900 to-gray-800">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-32 md:py-40">
-        <div className="text-center">
-          <h1 className="text-4xl md:text-6xl font-bold text-white mb-6">
-            Record Your Screen
-            <span className="text-blue-400"> Instantly</span>
-          </h1>
-          <p className="text-xl text-gray-300 mb-12 max-w-2xl mx-auto">
-            Share your ideas effortlessly with our lightweight browser-based screen recorder. 
-            No downloads required – just connect and start recording.
-          </p>
-          
-          <div className="flex flex-col items-center space-y-6">
-            <div className="p-8 bg-gray-800/50 rounded-2xl shadow-lg backdrop-blur-sm border border-gray-700">
-              <div className="flex flex-col items-center gap-4">
-                {showRecording ? (
-                  <>
-                    <RecordButton 
-                      isRecording={isRecording} 
-                      onClick={onRecordClick}
-                      currentPreset={currentPreset}
-                      onPresetChange={setQualityPreset}
-                    />
-                    <RecordingStatus isRecording={isRecording} />
-                  </>
-                ) : (
-                  <div className="text-center">
-                    <p className="text-gray-400 mb-4">
-                      Connect with OneDrive to start recording
-                    </p>
-                    <OneDriveButton onLoginSuccess={handleLoginSuccess} />
-                  </div>
-                )}
-              </div>
+  const handleGetStarted = async () => {
+    try {
+      await authService.login();
+    } catch (error) {
+      console.error('Login failed:', error);
+    }
+  };
+
+  if (isAuthenticated) {
+    return (
+      <div className="relative isolate px-6 pt-14 lg:px-8">
+        <div className="mx-auto max-w-3xl py-32 sm:py-48 lg:py-56">
+          <div className="text-center">
+            <h1 className="text-4xl font-bold tracking-tight text-white sm:text-6xl">
+              Start Recording
+            </h1>
+            <p className="mt-6 text-lg leading-8 text-gray-300">
+              You're all set! Click the button below to start recording your screen.
+            </p>
+            <div className="mt-10 flex flex-col items-center justify-center gap-6">
+              <RecordButton 
+                isRecording={isRecording}
+                onClick={handleRecordClick}
+                currentPreset={currentPreset}
+                onPresetChange={setCurrentPreset}
+                className="transform hover:scale-105 transition-transform"
+              />
+              <p className="text-gray-400">
+                Your recordings will be saved to your OneDrive automatically
+              </p>
             </div>
           </div>
+        </div>
+      </div>
+    );
+  }
 
-          <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-8 max-w-2xl mx-auto text-center">
-            <div className="p-6 bg-gray-800 rounded-xl shadow-md hover:shadow-lg transition-shadow border border-gray-700">
-              <div className="text-2xl font-bold text-blue-400">100%</div>
-              <div className="text-gray-300">Browser-Based</div>
-            </div>
-            <div className="p-6 bg-gray-800 rounded-xl shadow-md hover:shadow-lg transition-shadow border border-gray-700">
-              <div className="text-2xl font-bold text-blue-400">HD</div>
-              <div className="text-gray-300">Quality</div>
-            </div>
-            <div className="p-6 bg-gray-800 rounded-xl shadow-md hover:shadow-lg transition-shadow border border-gray-700">
-              <div className="text-2xl font-bold text-blue-400">Secure</div>
-              <div className="text-gray-300">Recording</div>
-            </div>
+  return (
+    <div className="relative isolate px-6 pt-14 lg:px-8">
+      <div className="mx-auto max-w-3xl py-32 sm:py-48 lg:py-56">
+        <div className="text-center">
+          <h1 className="text-4xl font-bold tracking-tight text-white sm:text-6xl">
+            Record Your Screen Instantly
+          </h1>
+          <p className="mt-6 text-lg leading-8 text-gray-300">
+            Share your ideas effortlessly with our lightweight browser-based screen recorder. 
+            No downloads required – just connect with OneDrive and start recording.
+          </p>
+          <div className="space-y-4 mt-8">
+            <p className="text-gray-400">
+              ✨ Free forever, no hidden costs
+            </p>
+            <p className="text-gray-400">
+              🔒 Your videos stay in your OneDrive - we never store your data
+            </p>
+            <p className="text-gray-400">
+              ☁️ Access your recordings anywhere through OneDrive
+            </p>
+            <p className="text-gray-400">
+              🚀 Start in seconds - no software installation needed
+            </p>
+          </div>
+          <div className="mt-10 flex items-center justify-center gap-x-6">
+            <button
+              onClick={handleGetStarted}
+              className="rounded-md bg-blue-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+            >
+              Connect with OneDrive
+            </button>
+            <Link
+              to="/about"
+              className="text-sm font-semibold leading-6 text-white"
+            >
+              Learn more <span aria-hidden="true">→</span>
+            </Link>
           </div>
         </div>
       </div>

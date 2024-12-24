@@ -8,37 +8,42 @@ interface RecordButtonProps {
   onClick: () => void;
   currentPreset: typeof VIDEO_PRESETS[0];
   onPresetChange: (preset: typeof VIDEO_PRESETS[0]) => void;
+  className?: string;
 }
 
 export const RecordButton: React.FC<RecordButtonProps> = ({
   isRecording,
   onClick,
   currentPreset,
-  onPresetChange
+  onPresetChange,
+  className = ''
 }) => {
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-col items-center gap-4">
       <button
         onClick={onClick}
-        className={`flex items-center gap-2 px-6 py-3 rounded-full text-white font-medium transition-all ${
-          isRecording
-            ? 'bg-red-500 hover:bg-red-600'
-            : 'bg-blue-500 hover:bg-blue-600'
-        }`}
-        aria-label={isRecording ? 'Stop Recording' : 'Start Recording'}
+        className={`
+          ${className}
+          p-8 rounded-full
+          ${isRecording 
+            ? 'bg-red-600 hover:bg-red-700' 
+            : 'bg-blue-600 hover:bg-blue-700'}
+          shadow-lg hover:shadow-xl
+          transition-all duration-200
+          flex items-center justify-center
+          group
+        `}
       >
-        {isRecording ? (
-          <>
-            <StopCircle size={20} />
-            Stop Recording
-          </>
-        ) : (
-          <>
-            <Video size={20} />
-            Start Recording
-          </>
-        )}
+        <div className="relative">
+          <div className="absolute -inset-1 bg-gradient-to-r from-blue-400 to-blue-600 rounded-full blur opacity-50 group-hover:opacity-75 transition"></div>
+          {isRecording ? (
+            <StopCircle className="w-16 h-16 text-white relative" />
+          ) : (
+            <Video className="w-16 h-16 text-white relative" />
+          )}
+        </div>
       </button>
+      
       <QualitySelector
         currentPreset={currentPreset}
         onPresetChange={onPresetChange}
