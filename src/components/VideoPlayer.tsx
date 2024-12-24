@@ -3,12 +3,13 @@ import {
   Play, Pause, Volume2, VolumeX, Share2,
   Maximize2, Minimize2, ExternalLink,
   SkipBack, SkipForward, Trash2,
-  VideoIcon
+  VideoIcon, Loader2, Cloud
 } from 'lucide-react';
 import { DeleteConfirmation } from './DeleteConfirmation';
 import { oneDriveService } from '../services/oneDrive';
 import { toast } from 'react-hot-toast';
 import { authService } from '../services/auth';
+import { useNavigate } from 'react-router-dom';
 
 interface VideoPlayerProps {
   video: {
@@ -16,6 +17,7 @@ interface VideoPlayerProps {
     url: string;
     name: string;
     createdDateTime: string;
+    onedriveUrl?: string;
   };
   className?: string;
   onDelete?: () => void;
@@ -74,6 +76,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
 
   const togglePlay = () => {
     if (!videoRef.current) return;
@@ -255,6 +258,13 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
           {/* Top Controls - Make these clickable */}
           <div className="absolute top-0 left-0 right-0 p-4 flex justify-end space-x-2 pointer-events-auto">
+            <button
+              onClick={() => window.open(`https://onedrive.live.com/?id=${video.id}`, '_blank')}
+              className="p-2 rounded-full bg-white/90 text-gray-900 hover:bg-white transition-colors z-50"
+              title="Open in OneDrive"
+            >
+              <Cloud size={20} />
+            </button>
             <button
               onClick={toggleFullscreen}
               className="p-2 rounded-full bg-white/90 text-gray-900 hover:bg-white transition-colors z-50"
