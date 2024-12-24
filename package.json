@@ -14,9 +14,6 @@
     "preview": "vite preview",
     "vercel-build": "npm run build:frontend && npm run build:server"
   },
-  "engines": {
-    "node": "18.x"
-  },
   "dependencies": {
     "@azure/msal-browser": "^3.10.0",
     "@azure/msal-react": "^2.0.12",
