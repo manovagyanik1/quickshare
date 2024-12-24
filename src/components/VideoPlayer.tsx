@@ -1,7 +1,299 @@
-// Update the shareVideo method in VideoPlayer component
-const shareVideo = () => {
-  // Share the video ID instead of the download URL
-  const shareUrl = `${window.location.origin}/video/${video.id}`;
-  navigator.clipboard.writeText(shareUrl);
-  toast.success('Video link copied to clipboard!');
+import React, { useState, useRef, useEffect } from 'react';
+import {
+  Play, Pause, Volume2, VolumeX, Share2,
+  Maximize2, Minimize2, ExternalLink,
+  SkipBack, SkipForward, Trash2,
+  VideoIcon
+} from 'lucide-react';
+import { DeleteConfirmation } from './DeleteConfirmation';
+import { oneDriveService } from '../services/oneDrive';
+import { toast } from 'react-hot-toast';
+
+interface VideoPlayerProps {
+  video: {
+    id: string;
+    url: string;
+    name: string;
+    createdDateTime: string;
+  };
+  className?: string;
+  onDelete?: () => void;
+  isTheaterMode?: boolean;
+}
+
+const formatTime = (seconds: number): string => {
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+};
+
+const formatVideoName = (filename: string): string => {
+  const nameWithoutPrefix = filename.replace(/^recording_/, '').replace(/\.webm$/, '');
+  const parts = nameWithoutPrefix.split('_');
+
+  if (parts.length === 2) {
+    const [date, time] = parts;
+    const formattedDate = new Date(date).toLocaleDateString();
+    const formattedTime = time.replace(/-/g, ':');
+    return `Recording from ${formattedDate} at ${formattedTime}`;
+  }
+
+  return filename;
+};
+
+export const VideoPlayer: React.FC<VideoPlayerProps> = ({
+  video,
+  className = '',
+  onDelete,
+  isTheaterMode = false
+}) => {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isMuted, setIsMuted] = useState(!isTheaterMode);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [volume, setVolume] = useState(1);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const togglePlay = () => {
+    if (!videoRef.current) return;
+    if (isPlaying) {
+      videoRef.current.pause();
+    } else {
+      videoRef.current.play();
+    }
+    setIsPlaying(!isPlaying);
+  };
+
+  const toggleMute = () => {
+    if (!videoRef.current) return;
+    videoRef.current.muted = !isMuted;
+    setIsMuted(!isMuted);
+  };
+
+  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newVolume = parseFloat(e.target.value);
+    if (!videoRef.current) return;
+    videoRef.current.volume = newVolume;
+    setVolume(newVolume);
+    setIsMuted(newVolume === 0);
+  };
+
+  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!videoRef.current) return;
+    const time = parseFloat(e.target.value);
+    videoRef.current.currentTime = time;
+    setCurrentTime(time);
+  };
+
+  const skipForward = () => {
+    if (!videoRef.current) return;
+    videoRef.current.currentTime += 10;
+  };
+
+  const skipBackward = () => {
+    if (!videoRef.current) return;
+    videoRef.current.currentTime -= 10;
+  };
+
+  const toggleFullscreen = async () => {
+    if (!containerRef.current) return;
+    try {
+      if (isFullscreen) {
+        await document.exitFullscreen();
+        setIsFullscreen(false);
+      } else {
+        await containerRef.current.requestFullscreen();
+        setIsFullscreen(true);
+      }
+    } catch (error) {
+      console.error('Fullscreen error:', error);
+    }
+  };
+
+  const shareVideo = () => {
+    const encodedVideoUrl = encodeURIComponent(video.url);
+    const shareUrl = `${window.location.origin}/video/${video.id}?url=${encodedVideoUrl}`;
+    navigator.clipboard.writeText(shareUrl);
+    toast.success('Video link copied to clipboard!');
+  };
+
+  const handleDelete = async () => {
+    if (!onDelete) return;
+    try {
+      setIsDeleting(true);
+      await oneDriveService.deleteVideo(video.id);
+      onDelete();
+      toast.success('Video deleted successfully');
+    } catch (error) {
+      console.error('Failed to delete video:', error);
+      toast.error('Failed to delete video');
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteConfirm(false);
+    }
+  };
+
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (!containerRef.current?.contains(document.activeElement)) return;
+
+      switch (e.key.toLowerCase()) {
+        case ' ':
+        case 'k':
+          e.preventDefault();
+          togglePlay();
+          break;
+        case 'f':
+          e.preventDefault();
+          toggleFullscreen();
+          break;
+        case 'm':
+          e.preventDefault();
+          toggleMute();
+          break;
+        case 'arrowleft':
+          e.preventDefault();
+          skipBackward();
+          break;
+        case 'arrowright':
+          e.preventDefault();
+          skipForward();
+          break;
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyPress);
+    return () => document.removeEventListener('keydown', handleKeyPress);
+  }, []);
+
+  return (
+    <div
+      ref={containerRef}
+      className={`${className} relative group ${isTheaterMode ? 'bg-black' : ''}`}
+    >
+      <div className="relative aspect-video bg-gray-800">
+        {video.url ? (
+          <video
+            ref={videoRef}
+            src={video.url}
+            className="w-full h-full"
+            muted={isMuted}
+            onPlay={() => setIsPlaying(true)}
+            onPause={() => setIsPlaying(false)}
+            onTimeUpdate={() => setCurrentTime(videoRef.current?.currentTime || 0)}
+            onLoadedMetadata={() => setDuration(videoRef.current?.duration || 0)}
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <VideoIcon className="w-16 h-16 text-gray-600" />
+          </div>
+        )}
+
+        {/* Video Controls */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+          {/* Top Controls */}
+          <div className="absolute top-0 left-0 right-0 p-4 flex justify-end space-x-2">
+            <button
+              onClick={toggleFullscreen}
+              className="p-2 rounded-full bg-white/90 text-gray-900 hover:bg-white transition-colors"
+            >
+              {isFullscreen ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
+            </button>
+            {onDelete && (
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="p-2 rounded-full bg-red-500/90 hover:bg-red-600 text-white transition-colors"
+                disabled={isDeleting}
+              >
+                <Trash2 size={20} />
+              </button>
+            )}
+          </div>
+
+          {/* Center Play Button */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <button
+              onClick={togglePlay}
+              className="p-4 rounded-full bg-white/90 text-gray-900 hover:bg-white transform transition-all hover:scale-110"
+            >
+              {isPlaying ? <Pause size={32} /> : <Play size={32} />}
+            </button>
+          </div>
+
+          {/* Bottom Controls */}
+          <div className="absolute bottom-0 left-0 right-0 p-4">
+            <input
+              type="range"
+              min={0}
+              max={duration}
+              value={currentTime}
+              onChange={handleSeek}
+              className="w-full h-1 mb-4"
+            />
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <button onClick={togglePlay}>
+                  {isPlaying ? <Pause size={20} /> : <Play size={20} />}
+                </button>
+                <button onClick={skipBackward}>
+                  <SkipBack size={20} />
+                </button>
+                <button onClick={skipForward}>
+                  <SkipForward size={20} />
+                </button>
+                <div className="flex items-center space-x-2">
+                  <button onClick={toggleMute}>
+                    {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
+                  </button>
+                  <input
+                    type="range"
+                    min={0}
+                    max={1}
+                    step={0.1}
+                    value={volume}
+                    onChange={handleVolumeChange}
+                    className="w-20"
+                  />
+                </div>
+                <span className="text-sm text-white">
+                  {formatTime(currentTime)} / {formatTime(duration)}
+                </span>
+              </div>
+
+              <button
+                onClick={shareVideo}
+                className="text-white hover:text-blue-400"
+              >
+                <Share2 size={20} />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Video Info */}
+      <div className="p-4">
+        <h3 className="text-lg font-semibold text-white">
+          {formatVideoName(video.name)}
+        </h3>
+        <p className="text-sm text-gray-400">
+          {new Date(video.createdDateTime).toLocaleString()}
+        </p>
+      </div>
+
+      <DeleteConfirmation
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={handleDelete}
+        isDeleting={isDeleting}
+        videoName={formatVideoName(video.name)}
+      />
+    </div>
+  );
 };

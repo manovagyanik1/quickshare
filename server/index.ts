@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { config } from 'dotenv';
-import { createVideo, getVideo } from './controllers/videoController';
+import { videoController } from './controllers/videoController';
 
 config();
 
@@ -12,8 +12,8 @@ app.use(cors());
 app.use(express.json());
 
 // Routes
-app.post('/api/videos', createVideo);
-app.get('/api/videos/:id', getVideo);
+app.post('/api/videos', videoController.create);
+app.get('/api/videos/:id', videoController.getUrl);
 
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);

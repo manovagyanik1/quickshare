@@ -2,7 +2,12 @@ import { Request, Response } from 'express';
 import { VideoModel } from '../models/video';
 import { oneDriveService } from '../services/oneDriveService';
 
-export const videoController = {
+interface VideoController {
+  create(req: Request, res: Response): Promise<void>;
+  getUrl(req: Request, res: Response): Promise<void>;
+}
+
+export const videoController: VideoController = {
   async create(req: Request, res: Response) {
     try {
       const { onedriveId, ownerId, downloadUrl } = req.body;
