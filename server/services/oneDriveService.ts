@@ -1,5 +1,13 @@
 import { OneDriveVideo } from '../types';
 
+interface DriveItem {
+  id: string;
+  name: string;
+  createdDateTime: string;
+  size: number;
+  '@microsoft.graph.downloadUrl': string;
+}
+
 export class OneDriveService {
   private async getHeaders(token: string): Promise<Headers> {
     return new Headers({
@@ -19,7 +27,7 @@ export class OneDriveService {
       throw new Error('Failed to get video details');
     }
 
-    const data = await response.json();
+    const data = await response.json() as DriveItem;
     return {
       id: data.id,
       name: data.name,

@@ -109,7 +109,7 @@ export const videoController: VideoController = {
       // Return video metadata with URL
       const videoResponse = {
         id: video.id,
-        name: video.title || 'Shared Video',
+        name: video.name || 'Shared Video',
         createdAt: video.created_at,
         updatedAt: video.updated_at,
         ownerId: video.owner_id,

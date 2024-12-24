@@ -25,6 +25,8 @@ const transformVideoDetails = (details: VideoDetails) => {
   };
 };
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
 export const VideoPage = () => {
   const { videoId } = useParams<{ videoId: string }>();
   const navigate = useNavigate();
@@ -38,7 +40,7 @@ export const VideoPage = () => {
       try {
         setIsLoading(true);
         const token = await authService.getAccessToken();
-        const response = await fetch(`/api/videos/${videoId}${token ? `?token=${token}` : ''}`);
+        const response = await fetch(`${API_URL}/api/videos/${videoId}${token ? `?token=${token}` : ''}`);
         
         if (!response.ok) {
           throw new Error('Failed to fetch video');

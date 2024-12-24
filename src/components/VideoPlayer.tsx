@@ -42,6 +42,8 @@ const formatVideoName = (filename: string): string => {
   return filename;
 };
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
 export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   video,
   className = '',
@@ -145,7 +147,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     try {
       setIsRefreshingUrl(true);
       const token = await authService.getAccessToken();
-      const response = await fetch(`/api/videos/${video.id}/url?token=${token}`);
+      const response = await fetch(`${API_URL}/api/videos/${video.id}/url?token=${token}`);
       
       if (!response.ok) {
         throw new Error('Failed to refresh video URL');
