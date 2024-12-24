@@ -43,8 +43,18 @@ export class VideoModel {
   }
 
   static findById(id: string): Video | undefined {
+    // First try to find by primary id
     const stmt = db.prepare('SELECT * FROM videos WHERE id = ?');
-    return stmt.get(id) as Video | undefined;
+    let video = stmt.get(id) as Video | undefined;
+
+    // If not found, try to find by onedrive_id
+    if (!video) {
+      const onedriveStmt = db.prepare('SELECT * FROM videos WHERE onedrive_id = ?');
+      video = onedriveStmt.get(id) as Video | undefined;
+    }
+
+    console.log('Found video:', video); // Debug log
+    return video;
   }
 
   static updateUrl(id: string, downloadUrl: string): void {

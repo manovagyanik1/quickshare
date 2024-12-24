@@ -8,6 +8,7 @@ import {
 import { DeleteConfirmation } from './DeleteConfirmation';
 import { oneDriveService } from '../services/oneDrive';
 import { toast } from 'react-hot-toast';
+import { authService } from '../services/auth';
 
 interface VideoPlayerProps {
   video: {
@@ -55,6 +56,8 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [volume, setVolume] = useState(1);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [videoUrl, setVideoUrl] = useState(video.url);
+  const [isRefreshingUrl, setIsRefreshingUrl] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -138,6 +141,32 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   };
 
+  const refreshVideoUrl = async () => {
+    try {
+      setIsRefreshingUrl(true);
+      const token = await authService.getAccessToken();
+      const response = await fetch(`/api/videos/${video.id}/url?token=${token}`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to refresh video URL');
+      }
+
+      const data = await response.json();
+      setVideoUrl(data.url);
+    } catch (error) {
+      console.error('Failed to refresh video URL:', error);
+      toast.error('Failed to refresh video. Please try again.');
+    } finally {
+      setIsRefreshingUrl(false);
+    }
+  };
+
+  useEffect(() => {
+    if (video.urlExpiry && new Date(video.urlExpiry) <= new Date()) {
+      refreshVideoUrl();
+    }
+  }, [video.id, video.urlExpiry]);
+
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
       if (!containerRef.current?.contains(document.activeElement)) return;
@@ -171,6 +200,21 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     return () => document.removeEventListener('keydown', handleKeyPress);
   }, []);
 
+  useEffect(() => {
+    const handleVideoError = async (e: Event) => {
+      const videoElement = e.target as HTMLVideoElement;
+      if (videoElement.error?.code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED) {
+        await refreshVideoUrl();
+      }
+    };
+
+    const videoElement = videoRef.current;
+    if (videoElement) {
+      videoElement.addEventListener('error', handleVideoError);
+      return () => videoElement.removeEventListener('error', handleVideoError);
+    }
+  }, [video.id]);
+
   return (
     <div
       ref={containerRef}
@@ -180,7 +224,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         {video.url ? (
           <video
             ref={videoRef}
-            src={video.url}
+            src={videoUrl}
             className="w-full h-full"
             muted={isMuted}
             onPlay={() => setIsPlaying(true)}
@@ -283,7 +327,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
           {formatVideoName(video.name)}
         </h3>
         <p className="text-sm text-gray-400">
-          {new Date(video.createdDateTime).toLocaleString()}
+          {new Date(video.createdAt).toLocaleString()}
         </p>
       </div>
 

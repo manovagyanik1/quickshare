@@ -3,12 +3,17 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { VideoPlayer } from '../components/VideoPlayer';
 import { X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { authService } from '../services/auth';
 
 interface VideoDetails {
   id: string;
   name: string;
-  url: string;
-  createdDateTime: string;
+  createdAt: string;
+  updatedAt: string;
+  ownerId: string;
+  downloadUrl: string;
+  urlExpiry?: string;
+  needsAuth?: boolean;
 }
 
 export const VideoPage = () => {
@@ -23,21 +28,15 @@ export const VideoPage = () => {
       
       try {
         setIsLoading(true);
-        // Fetch video URL from our backend
-        const response = await fetch(`/api/videos/${videoId}`);
+        const token = await authService.getAccessToken();
+        const response = await fetch(`/api/videos/${videoId}${token ? `?token=${token}` : ''}`);
         
         if (!response.ok) {
           throw new Error('Failed to fetch video');
         }
 
         const data = await response.json();
-        
-        setVideo({
-          id: videoId,
-          name: 'Shared Video', // You might want to store and fetch the actual name
-          url: data.url,
-          createdDateTime: new Date().toISOString()
-        });
+        setVideo(data);
       } catch (error) {
         console.error('Error fetching video:', error);
         toast.error('Failed to load video');

@@ -83,19 +83,39 @@ export const videoController: VideoController = {
   async getVideo(req: Request, res: Response) {
     try {
       const { id } = req.params;
+      const { token } = req.query;
       
       const video = VideoModel.findById(id);
       if (!video) {
         return res.status(404).json({ error: 'Video not found' });
       }
 
-      // Return video metadata without the URL
+      const now = new Date();
+      const expiry = video.url_expiry ? new Date(video.url_expiry) : new Date(0);
+      let downloadUrl = video.download_url;
+
+      // If URL is expired and we have a token, refresh it
+      if (now >= expiry && token) {
+        try {
+          const newUrl = await oneDriveService.getVideoDetails(video.onedrive_id, token as string);
+          VideoModel.updateUrl(id, newUrl.downloadUrl);
+          downloadUrl = newUrl.downloadUrl;
+        } catch (error) {
+          console.error('Failed to refresh URL:', error);
+          // Keep using old URL if refresh fails
+        }
+      }
+
+      // Return video metadata with URL
       const videoResponse = {
         id: video.id,
-        name: video.title || 'Shared Video', // Changed name to title based on Video type
+        name: video.title || 'Shared Video',
         createdAt: video.created_at,
         updatedAt: video.updated_at,
-        ownerId: video.owner_id
+        ownerId: video.owner_id,
+        downloadUrl,
+        urlExpiry: video.url_expiry,
+        needsAuth: now >= expiry && !token
       };
 
       res.json(videoResponse);
