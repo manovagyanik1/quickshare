@@ -1,10 +1,10 @@
 import { authService } from './auth';
 import { toast } from 'react-hot-toast';
+import { getApiUrl } from './api';
 
 const GRAPH_ENDPOINT = 'https://graph.microsoft.com/v1.0';
 const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks
 const FOLDER_NAME = 'quickshare-recordings';
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 interface UploadSessionResponse {
   uploadUrl: string;
@@ -134,7 +134,7 @@ export class OneDriveService {
             downloadUrl
           });
 
-          const dbResponse = await fetch(`${API_URL}/api/videos`, {
+          const dbResponse = await fetch(getApiUrl(`/videos`), {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

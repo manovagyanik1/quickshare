@@ -15,7 +15,7 @@ const app = express();
 app.use(cors({
   origin: process.env.VERCEL_URL 
     ? [`https://${process.env.VERCEL_URL}`, 'https://screencast.app']
-    : 'http://localhost:5173',
+    : '*',
   credentials: true
 }));
 
@@ -29,14 +29,13 @@ app.post('/api/videos', videoController.create);
 app.get('/api/videos/:id/url', videoController.getUrl);
 app.get('/api/videos/:id', videoController.getVideo);
 
-// Handle Vercel serverless
-if (process.env.VERCEL) {
-  // Export for serverless
-  module.exports = app;
-} else {
-  // Start server normally
+// For local development
+if (process.env.NODE_ENV !== 'production') {
   const port = process.env.PORT || 3000;
   app.listen(port, () => {
     console.log(`Server running on port ${port}`);
   });
 }
+
+// For Vercel serverless deployment
+export default app;
