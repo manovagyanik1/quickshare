@@ -2,26 +2,29 @@ import React from 'react';
 import { Video, StopCircle } from 'lucide-react';
 import { QualitySelector } from './QualitySelector';
 import { VIDEO_PRESETS } from '../utils/videoPresets';
+import { useScreenRecorder } from '../hooks/useScreenRecorder';
+import { VideoQualityPreset } from '../utils/types';
 
 interface RecordButtonProps {
-  isRecording: boolean;
-  onClick: () => void;
-  currentPreset: typeof VIDEO_PRESETS[0];
-  onPresetChange: (preset: typeof VIDEO_PRESETS[0]) => void;
   className?: string;
 }
 
 export const RecordButton: React.FC<RecordButtonProps> = ({
-  isRecording,
-  onClick,
-  currentPreset,
-  onPresetChange,
   className = ''
 }) => {
+  const {
+    isRecording,
+    startRecording,
+    stopRecording,
+    currentPreset,
+    setQualityPreset,
+    MobileModal
+  } = useScreenRecorder();
+
   return (
     <div className="flex flex-col items-center gap-4">
       <button
-        onClick={onClick}
+        onClick={isRecording ? stopRecording : startRecording}
         className={`
           ${className}
           p-8 rounded-full
@@ -46,9 +49,11 @@ export const RecordButton: React.FC<RecordButtonProps> = ({
       
       <QualitySelector
         currentPreset={currentPreset}
-        onPresetChange={onPresetChange}
+        onPresetChange={setQualityPreset}
+        presets={VIDEO_PRESETS}
         disabled={isRecording}
       />
+      <MobileModal />
     </div>
   );
 };

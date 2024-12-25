@@ -5,6 +5,9 @@ import { oneDriveService } from '../services/oneDrive';
 import { formatFileName } from '../utils/formatFileName';
 import { VideoQualityPreset } from '../utils/types';
 import { VIDEO_PRESETS } from '../utils/videoPresets';
+import { isMobile } from 'react-device-detect';
+import { toast } from 'react-hot-toast';
+import { MobileModal } from '../components/MobileModal';
 
 interface UploadSession {
   uploadUrl: string;
@@ -35,6 +38,7 @@ export const useScreenRecorder = () => {
     id: string;
     progress: number;
   } | null>(null);
+  const [showMobileModal, setShowMobileModal] = useState(false);
 
   const setQualityPreset = useCallback((preset: VideoQualityPreset) => {
     if (!state.isRecording) {
@@ -75,6 +79,11 @@ export const useScreenRecorder = () => {
   }, []);
 
   const startRecording = useCallback(async () => {
+    if (isMobile) {
+      setShowMobileModal(true);
+      return;
+    }
+
     try {
       const screenStream = await getScreenStream();
       const audioStream = await getAudioStream();
@@ -142,7 +151,7 @@ export const useScreenRecorder = () => {
       };
     } catch (error) {
       console.error('Error starting recording:', error);
-      throw error;
+      toast.error('Failed to start recording');
     }
   }, [calculateOptimalBitrate, state.currentPreset]);
 
@@ -170,6 +179,13 @@ export const useScreenRecorder = () => {
       }));
     }
   }, [state.mediaRecorder]);
+  
+  const MobileModalComponent = () => (
+    <MobileModal 
+      isOpen={showMobileModal} 
+      onClose={() => setShowMobileModal(false)} 
+    />
+  );
 
   return {
     isRecording: state.isRecording,
@@ -180,6 +196,7 @@ export const useScreenRecorder = () => {
     setQualityPreset,
     startRecording,
     stopRecording,
-    availablePresets: VIDEO_PRESETS
+    availablePresets: VIDEO_PRESETS,
+    MobileModal: MobileModalComponent
   };
 };
