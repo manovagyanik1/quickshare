@@ -6,11 +6,12 @@ export const VideoModel = {
     // Table should be created via Supabase dashboard or migration
   },
 
-  async create({ onedriveId, ownerId, downloadUrl }) {
+  async create({ onedriveId, ownerId, downloadUrl, shareId }) {
     const { data, error } = await supabase
       .from('videos')
       .insert({
         onedrive_id: onedriveId,
+        share_id: shareId,
         owner_id: ownerId,
         download_url: downloadUrl,
         url_expiry: new Date(Date.now() + URL_EXPIRY_MS).toISOString(),
@@ -47,15 +48,27 @@ export const VideoModel = {
       .eq('onedrive_id', id)
       .single());
 
-    if (error) {
-      if (error.code !== 'PGRST116') { // Not found error
-        console.error('Supabase error:', error);
-        throw error;
-      }
-      return null;
+    if (!error && video) {
+      return video;
     }
 
-    return video;
+    // Try share_id
+    ({ data: video, error } = await supabase
+      .from('videos')
+      .select('*')
+      .eq('share_id', id)
+      .single());
+
+    if (!error && video) {
+      return video;
+    }
+
+    if (error && error.code !== 'PGRST116') { // Not found error
+      console.error('Supabase error:', error);
+      throw error;
+    }
+
+    return null;
   },
 
   async updateUrl(id, downloadUrl) {

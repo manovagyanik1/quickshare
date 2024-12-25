@@ -31,6 +31,11 @@ export interface VideoMetadata {
   token: string;
 }
 
+interface ShareResponse {
+  shareId: string;
+  webUrl: string;
+}
+
 export class OneDriveService {
   private async getHeaders(): Promise<Headers> {
     const token = await authService.getAccessToken();
@@ -40,6 +45,46 @@ export class OneDriveService {
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',
     });
+  }
+
+  /**
+   * Extracts the file ID from the sharable OneDrive link.
+   * @param {string} sharableLink - The full OneDrive sharable link.
+   * @returns {string} - The extracted file ID.
+   */
+  extractFileId(sharableLink: string): string {
+    try {
+      // Extract the part after "/u/s!" using a regular expression
+      const match = sharableLink.match(/\/u\/s!([^?]+)/);
+      if (match && match[1]) {
+        return match[1];
+      } else {
+        throw new Error("Invalid sharable link format.");
+      }
+    } catch (error) {
+      throw new Error("Failed to extract file ID: " + (error as Error).message);
+    }
+  }
+
+  /**
+   * Generates the Microsoft Graph API URL from the file ID.
+   * @param {string} fileId - The unique file ID extracted from the sharable link.
+   * @returns {string} - The Microsoft Graph API URL.
+   */
+  generateGraphApiUrl(fileId: string): string {
+    // Validate the file ID
+    if (!fileId || typeof fileId !== "string") {
+      throw new Error("Invalid file ID provided.");
+    }
+
+    // Base64 encode the file ID
+    const base64Encoded = btoa(`https://1drv.ms/u/s!${fileId}`);
+
+    // Replace special characters in Base64 encoded string for OneDrive compatibility
+    const safeBase64 = base64Encoded.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+
+    // Construct the Microsoft Graph API URL
+    return `https://graph.microsoft.com/v1.0/shares/u!${safeBase64}/driveItem`;
   }
 
   async createUploadSession(fileName: string): Promise<UploadSessionResponse> {
@@ -124,10 +169,10 @@ export class OneDriveService {
           fileId = responseData.id;
           
           // Make the file public
-          await this.makeFilePublic(fileId);
+          const {shareId} = await this.makeFilePublic(fileId as string);
           
           // Get the download URL
-          const downloadUrl = await this.getFileUrl(fileId);
+          const downloadUrl = await this.getFileUrl(fileId as string);
           
           // Before making the request, let's log the user
           const user = await authService.getUser();
@@ -137,7 +182,7 @@ export class OneDriveService {
 
           // Store in our database
           console.log('Uploading to database:', {
-            onedriveId: fileId,
+            onedriveId: shareId,
             ownerId: user.id,
             downloadUrl
           });
@@ -149,6 +194,7 @@ export class OneDriveService {
               Authorization: `Bearer ${await authService.getAccessToken()}`
             },
             body: JSON.stringify({
+              shareId,
               onedriveId: fileId,
               ownerId: user.id,
               downloadUrl
@@ -177,7 +223,7 @@ export class OneDriveService {
     }
   }
 
-  private async makeFilePublic(fileId: string): Promise<void> {
+  private async makeFilePublic(fileId: string): Promise<ShareResponse> {
     try {
       const headers = await this.getHeaders();
       const response = await fetch(
@@ -186,16 +232,27 @@ export class OneDriveService {
           method: 'POST',
           headers,
           body: JSON.stringify({
-            type: 'view',
-            scope: 'anonymous'
+            type: 'embed',
+            scope: 'anonymous',
+            password: null,
           })
         }
       );
+
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Failed to make file public:', errorText);
         throw new Error('Failed to make file public');
-      } else {
-        console.log('File public response:', await response.json());
       }
+
+      const data = await response.json();
+      console.log('Share link created:', data);
+      
+      // Get the sharing URL in the correct format
+      const webUrl = data.link.webUrl;
+      const shareId = this.extractFileId(webUrl);
+      
+      return { shareId, webUrl };
     } catch (error) {
       console.error('Error making file public:', error);
       throw error;
@@ -268,19 +325,26 @@ export class OneDriveService {
     }
   }
 
-  async getVideoDetails(fileId: string): Promise<Video> {
+  async getVideoDetails(shareId: string): Promise<Video> {
     try {
       const headers = await this.getHeaders();
+      const graphApiUrl = this.generateGraphApiUrl(shareId);
+
       const response = await fetch(
-        `${GRAPH_ENDPOINT}/me/drive/items/${fileId}`,
+        graphApiUrl,
         { headers }
       );
 
       if (!response.ok) {
+        console.error('Graph API Error:', await response.text());
+        if (response.status === 404) {
+          throw new Error('Video not found or access denied');
+        }
         throw new Error('Failed to get video details');
       }
 
       const data = await response.json();
+      console.log('Video details response:', data);
       return {
         id: data.id,
         name: data.name,

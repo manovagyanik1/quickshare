@@ -59,7 +59,11 @@ export const VideoPage = () => {
       
       if (isLoggedIn) {
         try {
-          const videoDetails = await oneDriveService.getVideoDetails(videoId);
+          const response = await fetch(getApiUrl(API_CONFIG.ENDPOINTS.VIDEO_DETAILS(videoId)));
+          if (!response.ok) throw new Error('Failed to fetch video');
+          const metadata = await response.json();
+          
+          const videoDetails = await oneDriveService.getVideoDetails(metadata.shareId);
           videoData = {
             id: videoId,
             name: videoDetails.name,
@@ -67,7 +71,8 @@ export const VideoPage = () => {
             updatedAt: new Date().toISOString(),
             downloadUrl: videoDetails.url,
             onedriveId: videoDetails.id,
-            size: videoDetails.size
+            size: videoDetails.size,
+            ownerId: metadata.ownerId
           };
         } catch (error) {
           console.error('Failed to get video from OneDrive:', error);

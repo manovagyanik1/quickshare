@@ -4,21 +4,22 @@ import { oneDriveService } from '../services/oneDriveService.js';
 export const videoController = {
   async create(req, res) {
     try {
-      const { onedriveId, ownerId, downloadUrl } = req.body;
+      const { onedriveId, ownerId, downloadUrl, shareId } = req.body;
 
-      if (!onedriveId || !ownerId || !downloadUrl) {
-        console.error('Missing required fields:', { onedriveId, ownerId, downloadUrl });
+      if (!onedriveId || !ownerId || !downloadUrl || !shareId) {
+        console.error('Missing required fields:', { onedriveId, ownerId, downloadUrl, shareId });
         return res.status(400).json({
           error: 'Missing required fields',
           missing: {
             onedriveId: !onedriveId,
             ownerId: !ownerId,
-            downloadUrl: !downloadUrl
+            downloadUrl: !downloadUrl,
+            shareId: !shareId
           }
         });
       }
 
-      const id = await VideoModel.create({ onedriveId, ownerId, downloadUrl });
+      const id = await VideoModel.create({ onedriveId, ownerId, downloadUrl, shareId });
       res.status(201).json({ id });
     } catch (error) {
       console.error('Error creating video:', error);
@@ -99,6 +100,7 @@ export const videoController = {
         ownerId: video.owner_id,
         onedriveId: video.onedrive_id,
         downloadUrl,
+        shareId: video.share_id,
         urlExpiry: video.url_expiry,
         needsAuth: now >= expiry && !token
       });
